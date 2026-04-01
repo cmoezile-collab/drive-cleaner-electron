@@ -1,0 +1,59 @@
+{
+  "name": "drive-cleaner-by-clark",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DRIVE CLEANER | by Clark",
+  "author": "Clark",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "pack": "electron-builder --dir",
+    "build": "electron-builder --win nsis portable",
+    "build:win": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^32.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.clark.drivecleaner",
+    "productName": "DRIVE CLEANER",
+    "electronLanguages": [
+      "en-US"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "index.html",
+      "styles.css",
+      "renderer.js",
+      "main.js",
+      "preload.js",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "icon": "assets/dcc.ico",
+      "requestedExecutionLevel": "requireAdministrator",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "artifactName": "DRIVE CLEANER Setup ${version}.${ext}",
+      "installerIcon": "assets/dcc.ico",
+      "uninstallerIcon": "assets/dcc.ico",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "shortcutName": "DRIVE CLEANER",
+      "uninstallDisplayName": "DRIVE CLEANER"
+    },
+    "portable": {
+      "artifactName": "DRIVE CLEANER Portable ${version}.${ext}"
+    }
+  }
+}
