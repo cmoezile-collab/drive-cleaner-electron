@@ -787,7 +787,8 @@ ipcMain.handle('app:init', async () => {
   return {
     appName: APP_TITLE,
     admin,
-    drives
+    drives,
+    maximized: mainWindow ? mainWindow.isMaximized() : false
   };
 });
 

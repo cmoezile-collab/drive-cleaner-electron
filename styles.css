@@ -35,6 +35,7 @@ html,
 body {
   margin: 0;
   height: 100%;
+  color-scheme: dark;
   background:
     radial-gradient(circle at top right, rgba(212, 176, 100, 0.08), transparent 26%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 16%),
@@ -56,6 +57,34 @@ select {
 
 button {
   cursor: pointer;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212, 176, 100, 0.42) rgba(18, 18, 22, 0.9);
+}
+
+*::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(18, 18, 22, 0.96);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(118, 96, 47, 0.95), rgba(212, 176, 100, 0.75));
+  border: 2px solid rgba(18, 18, 22, 0.96);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(140, 113, 55, 0.98), rgba(224, 192, 122, 0.88));
+}
+
+*::-webkit-scrollbar-corner {
+  background: rgba(18, 18, 22, 0.96);
 }
 
 svg {
@@ -196,10 +225,20 @@ svg {
 
 .window-btn {
   width: 42px;
+  min-width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
   border: 0;
   background: transparent;
   color: var(--text-faint);
   transition: background 160ms ease, color 160ms ease;
+}
+
+.window-btn svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 1.5;
 }
 
 .window-btn:hover {

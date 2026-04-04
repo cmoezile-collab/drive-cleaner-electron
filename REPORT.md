@@ -1,204 +1,335 @@
 # Drive Cleaner by Clark
 
-## Overview
-A disk space analyzer and cleanup utility built with Electron. Features a modern dark/gold theme, drive scanning, file category visualization, and safe cleanup operations.
+## Executive Summary
+Drive Cleaner by Clark is a Windows-focused Electron desktop utility for inspecting connected drives, unhiding hidden content, scanning drives with Microsoft Defender, and formatting volumes through a guarded confirmation flow. The project currently ships as a custom-framed desktop application with a dark/gold visual system, administrative elevation support, live activity logs, and packaged Windows installer and portable builds.
+
+This report reflects the current source state in `E:\Code_HQ\Drive Cleaner by Clark` as of April 4, 2026, including the latest UI refinements completed in this session.
 
 ---
 
-## 📦 Build Information
+## Current Status
 
-| Property | Value |
-|----------|-------|
-| **Version** | 1.0.0 |
-| **Framework** | Electron 32.3.3 |
-| **Build Tool** | electron-builder 24.13.3 |
-| **Author** | Clark Studios |
-| **License** | MIT |
+### Project State
+- Application type: Electron desktop app
+- Platform target: Windows
+- Current version: `1.0.0`
+- Main entry: `main.js`
+- Renderer entry: `renderer.js`
+- UI shell: `index.html`
+- Theme stylesheet: `styles.css`
+- IPC bridge: `preload.js`
 
----
-
-## 🚀 Features
-
-### Drive Analysis
-- Scan all available drives (Fixed, Removable, Network, Optical)
-- Visual storage breakdown by file category
-- Interactive treemap visualization
-- Folder size analysis
-- Quick access to large files
-
-### File Categories
-- Documents (PDF, DOC, XLS, TXT)
-- Images (JPG, PNG, GIF, WEBP)
-- Videos (MP4, MKV, AVI, MOV)
-- Audio (MP3, FLAC, WAV, M4A)
-- Archives (ZIP, RAR, 7Z)
-- Applications (EXE, MSI, DLL)
-- System files
-- Temporary files
-
-### Cleanup Operations
-- Temporary file cleanup
-- Windows Update cache
-- Recycle Bin emptying
-- Browser cache cleaning
-- Log file removal
-- Thumbnail cache cleanup
-- Safe cleanup recommendations
-
-### Drive Operations
-- Format drives (with confirmation)
-- Eject removable drives
-- Open in File Explorer
-- Drive properties view
-- S.M.A.R.T. status (where available)
+### Latest Completed Refinements
+- Added dark custom scrollbar styling so scroll areas match the rest of the interface.
+- Fixed titlebar control rendering for minimize, maximize, restore, and close icons.
+- Added maximize-state awareness so the toggle button changes to a restore icon when the window is maximized.
+- Rebuilt Windows installer and portable artifacts after the UI updates.
 
 ---
 
-## 📁 Project Structure
+## Product Overview
 
-```
-drive-cleaner-electron/
-├── main.js                 # Electron main process
-├── preload.js              # IPC bridge (context isolation)
-├── renderer.js             # Renderer logic
-├── styles.css              # Dark/gold theme styles
-├── index.html              # Main UI
+### Purpose
+The application is designed to help users work with removable and fixed drives through a compact operational UI focused on:
+- Unhiding hidden files and folders
+- Running Microsoft Defender scans against a selected drive
+- Formatting a selected drive with safety confirmations
+- Viewing progress and live logs during each operation
+
+### Primary User Flows
+1. Launch the app with administrative privileges.
+2. Select a connected drive from the sidebar.
+3. Choose cleaning/scanning settings.
+4. Run `UNHIDE ONLY`, `SCAN ONLY`, or `FULL CLEAN`.
+5. Review progress, status, and live activity logs.
+6. Optionally switch to the `FORMAT` tab and perform a guarded format action.
+
+---
+
+## Architecture
+
+### Main Process
+File: `main.js`
+
+Responsibilities:
+- Creates the Electron `BrowserWindow`
+- Applies custom frameless window configuration
+- Handles admin elevation workflow on launch
+- Enumerates Windows drives with PowerShell/CIM
+- Runs Windows drive operations and Defender commands
+- Manages active task state and cancellation
+- Sends progress, log, toast, and window-state events to the renderer
+
+Key behaviors:
+- Relaunches as administrator when required
+- Uses `diskpart` for formatting
+- Uses `MpCmdRun.exe` when available for Defender scans
+- Falls back to PowerShell Defender commands when needed
+- Tracks child processes so running tasks can be stopped
+
+### Renderer Process
+File: `renderer.js`
+
+Responsibilities:
+- Binds UI controls to application behavior
+- Loads initial app state
+- Populates the drive selector
+- Handles clean/format actions
+- Updates progress bars, stats, logs, badges, and toasts
+- Manages the custom confirmation modal
+- Responds to main-process window maximize state changes
+
+### Preload Layer
+File: `preload.js`
+
+Responsibilities:
+- Exposes a minimal secure IPC API through `contextBridge`
+- Keeps `contextIsolation` enabled
+- Prevents direct Node access from the renderer
+
+Exposed API:
+- `getInitialState()`
+- `refreshDrives()`
+- `startClean(payload)`
+- `startFormat(payload)`
+- `stopTask()`
+- `windowAction(action)`
+- `onEvent(callback)`
+
+---
+
+## UI and UX Summary
+
+### Layout
+The interface is split into three major regions:
+- Custom titlebar with branding, state pills, and window controls
+- Left sidebar for drive targeting and scan settings
+- Main content area with `CLEAN` and `FORMAT` views
+
+### Visual System
+The design uses a dark industrial interface with gold accents:
+- Background: near-black layered gradients
+- Cards: dark panels with subtle borders and highlights
+- Accent color: warm gold for key status and interactive emphasis
+- Danger state: red gradients for destructive actions and warnings
+- Typography: condensed display styling with mono metadata accents
+
+### Recent UI Fixes
+- Scrollbars are now themed dark instead of using bright native styling.
+- Titlebar control icons are now larger and centered inside the custom frame buttons.
+- The maximize toggle now visually switches between maximize and restore states.
+
+---
+
+## Feature Breakdown
+
+### Drive Detection
+Implemented in `main.js` using PowerShell and `Get-CimInstance Win32_LogicalDisk`.
+
+Collected drive properties:
+- `DeviceID`
+- `DriveType`
+- `VolumeName`
+- `Size`
+
+Mapped drive types:
+- `2` = Removable
+- `3` = Fixed
+- `4` = Network
+- `5` = Optical
+
+### Clean Operations
+Modes supported:
+- `unhide`
+- `scan`
+- `full`
+
+#### Unhide Flow
+- Validates the selected drive path
+- Recursively traverses the drive
+- Removes the `Hidden` attribute from items
+- Optionally removes the `System` attribute when enabled
+- Emits incremental counts to the UI log and stats panel
+
+#### Defender Scan Flow
+Primary path:
+- Uses `MpCmdRun.exe`
+- Runs a custom drive scan
+- Supports optional flags for:
+  - remediation disable
+  - boot sector scan
+  - CPU throttling
+
+Fallback path:
+- Uses PowerShell `Start-MpScan`
+
+UI outputs:
+- Status badge updates
+- Threat count updates
+- Toasts for failures
+- Live log lines from scan output
+
+### Format Operations
+Formatting is routed through `diskpart` using a generated temporary script.
+
+Supported filesystems:
+- `NTFS`
+- `exFAT`
+- `FAT32`
+
+Supported format types:
+- `Quick`
+- `Full`
+
+Safety behaviors:
+- Two-step confirmation flow
+- FAT32 size warning for drives larger than 32 GB
+- Active progress state and format log output
+- Stop control support for in-progress operations
+
+---
+
+## Security and Safety Notes
+
+### Implemented Safeguards
+- `contextIsolation: true`
+- `nodeIntegration: false`
+- Administrative elevation on launch
+- Double confirmation before formatting
+- Sanitization for drive and label inputs
+- Process tracking and stop support for long-running operations
+
+### Risk Areas
+- Formatting remains inherently destructive even with confirmations.
+- Recursive unhide operations on large drives may take significant time.
+- Defender fallback mode does not expose every CLI option available in `MpCmdRun.exe`.
+
+---
+
+## Codebase Structure
+
+```text
+Drive Cleaner by Clark/
 ├── assets/
-│   └── dcc.ico             # Application icon
+│   ├── dcc.ico
+│   └── dcc-icon-preview.png
+├── build/
+│   ├── installerHeader.bmp
+│   └── installerSidebar.bmp
+├── dist/
+│   ├── win-unpacked/
+│   ├── DRIVE CLEANER Setup 1.0.0.exe
+│   ├── DRIVE CLEANER Setup 1.0.0.exe.blockmap
+│   ├── DRIVE CLEANER Portable 1.0.0.exe
+│   └── DRIVE CLEANER 1.0.0.exe
 ├── scripts/
-│   └── generate-icon.ps1   # Icon generation
-├── package.json            # Dependencies & build config
-└── dist/                   # Built executables
-    ├── DRIVE CLEANER Setup 1.0.0.exe    # Installer (70 MB)
-    └── DRIVE CLEANER Portable 1.0.0.exe # Portable (70 MB)
+│   └── generate-icon.ps1
+├── index.html
+├── main.js
+├── package.json
+├── preload.js
+├── renderer.js
+├── styles.css
+└── REPORT.md
 ```
 
 ---
 
-## 📋 Requirements
+## Build and Packaging
 
-### Runtime
-- Windows 10/11
-- .NET Framework 4.5+ (for some drive operations)
+### Package Configuration
+Defined in `package.json`.
 
-### Development
-```powershell
-npm install                  # Install dependencies
-```
+Build stack:
+- Electron `^32.0.0`
+- electron-builder `^24.13.3`
 
----
+Targets:
+- NSIS installer
+- Portable Windows executable
 
-## 🖥️ Usage
+Windows packaging settings:
+- App ID: `com.clark.drivecleaner`
+- Product name: `DRIVE CLEANER`
+- Requested execution level: `requireAdministrator`
+- Output directory: `dist`
 
-### Running from Source
-```powershell
-cd E:\Code_HQ\drive-cleaner-electron
-npm install
-npm start
-```
+### Current Known Artifacts
+Latest confirmed rebuild during this session:
+- `dist\DRIVE CLEANER Setup 1.0.0.exe`
+- `dist\DRIVE CLEANER Portable 1.0.0.exe`
 
-### Using Built Executables
-- **Installer:** `dist\DRIVE CLEANER Setup 1.0.0.exe`
-- **Portable:** `dist\DRIVE CLEANER Portable 1.0.0.exe` (no installation required)
-
----
-
-## 🔧 Development
-
-### Build Commands
-```powershell
-npm install                  # Install dependencies
-npm run build                # Build all targets
-npm run build:win            # Build Windows executables
-```
+Latest observed timestamps:
+- Setup build: April 4, 2026 at approximately 1:13 AM
+- Portable build: April 4, 2026 at approximately 1:13 AM
 
 ---
 
-## 🎨 Design System
+## Session Change Log
 
-### Color Palette
-| Token | Value | Usage |
-|-------|-------|-------|
-| `--bg-dark` | `#09090b` | Main background |
-| `--bg-panel` | `#0f0f12` | Panels, titlebar |
-| `--bg-card` | `#18181c` | Cards, buttons |
-| `--bg-card-hover` | `#1e1e24` | Hover states |
-| `--bg-input` | `#141418` | Input fields |
-| `--gold` | `#d4b064` | Primary accent |
-| `--gold-light` | `#e0c07a` | Accent hover |
-| `--text-primary` | `#ececec` | Primary text |
-| `--text-secondary` | `#a1a1aa` | Secondary text |
-| `--text-dim` | `#71717a` | Muted text |
-| `--green` | `#22c55e` | Success |
-| `--red` | `#ef4444` | Danger |
-| `--orange` | `#f97316` | Warning |
+### Scrollbar Refinement
+Files changed:
+- `styles.css`
 
-### Typography
-- **Display:** Bebas Neue
-- **Body:** Inter
-- **Mono:** DM Mono
+Change summary:
+- Enabled dark color scheme behavior
+- Added custom scrollbar styling for track, thumb, hover, and corner states
 
----
+Outcome:
+- Scrollable areas now visually match the app theme instead of using a bright white scrollbar
 
-## 🔒 Security Features
+### Titlebar Control Refinement
+Files changed:
+- `index.html`
+- `renderer.js`
+- `main.js`
+- `styles.css`
 
-- Context Isolation enabled
-- Node Integration disabled
-- IPC validation on all calls
-- Admin elevation for drive operations
-- Multiple confirmations for destructive actions
-- Path validation and sanitization
+Change summary:
+- Replaced undersized titlebar SVGs with larger icons
+- Added centered sizing rules for custom frame buttons
+- Wired maximize state to renderer updates
+- Added restore glyph behavior when maximized
+
+Outcome:
+- Minimize, maximize, restore, and close controls now render correctly and behave more like native desktop controls
 
 ---
 
-## 📊 Drive Types Supported
+## Gaps Between Current App and Legacy Report
+The previous `REPORT.md` described the project as a broader disk analyzer with features such as:
+- storage treemaps
+- folder size visualization
+- browser cache cleanup
+- Windows Update cache cleanup
+- recycle bin cleaning
+- S.M.A.R.T. status inspection
 
-| Type ID | Name | Example |
-|---------|------|---------|
-| 2 | Removable | USB drives, SD cards |
-| 3 | Fixed | Internal hard drives |
-| 4 | Network | Mapped network drives |
-| 5 | Optical | CD/DVD/Blu-ray drives |
+Those capabilities are not reflected in the current source implementation reviewed in this session. The current codebase is more focused and primarily delivers:
+- drive selection
+- unhide operations
+- Defender scan execution
+- destructive format workflows
+- live logging and task control
 
----
-
-## ⚠️ Warnings
-
-### Safe Operations
-- ✅ Temporary file cleanup
-- ✅ Recycle Bin emptying
-- ✅ Browser cache cleaning
-- ✅ Log file removal
-- ✅ Thumbnail cache
-
-### Use Caution
-- ⚠️ Drive formatting (destroys all data)
-- ⚠️ System file cleanup
-- ⚠️ Windows Update cache (may prevent updates)
+This updated report is intended to reflect the actual present implementation rather than the broader original concept.
 
 ---
 
-## 📝 Change History
-
-### Version 1.0.0
-- Initial Electron release
-- Dark/gold theme UI
-- Drive scanning and analysis
-- File category visualization
-- Cleanup operations
-- Format/eject support
-- Custom titlebar with window controls
-
----
-
-## 📞 Support
-
-**Author:** Clark Studios  
-**Location:** Jacksonville, FL  
-**Built:** 2026
+## Recommended Next Improvements
+- Add a dedicated drive summary card showing selected drive label, type, and size more prominently.
+- Add explicit task completion summaries in the log for clean runs.
+- Add a non-destructive preflight validation panel before formatting.
+- Add visual disabled states for settings that do not apply to the current action mode.
+- Add smoke-test documentation for core flows:
+  - drive refresh
+  - unhide only
+  - Defender scan only
+  - full clean
+  - quick format
+  - maximize and restore titlebar behavior
 
 ---
 
-## 📄 License
-
-MIT License - See LICENSE file for details.
+## Conclusion
+Drive Cleaner by Clark is currently a functional Windows utility with a solid custom UI shell, secure Electron setup, live task reporting, and working operational flows for drive cleanup and formatting. The latest refinements improved polish in two visible areas: scroll behavior and titlebar controls. The project is in a good state for continued UI refinement, testing, and feature expansion.

@@ -57,6 +57,8 @@ function cacheElements() {
     format: document.getElementById('panel-format')
   };
   elements.windowButtons = Array.from(document.querySelectorAll('[data-window-action]'));
+  elements.toggleMaximizeBtn = document.getElementById('toggleMaximizeBtn');
+  elements.maximizeIcon = document.getElementById('maximizeIcon');
   elements.modal = document.getElementById('confirmModal');
   elements.modalEyebrow = document.getElementById('modalEyebrow');
   elements.modalTitle = document.getElementById('modalTitle');
@@ -122,6 +124,7 @@ async function bootstrap() {
   document.title = initial.appName || 'DRIVE CLEANER | by Clark';
   setAdminState(Boolean(initial.admin));
   populateDrives(initial.drives || []);
+  setWindowMaximized(Boolean(initial.maximized));
 }
 
 function seedDefaultLogs() {
@@ -154,6 +157,20 @@ function setAdminState(admin) {
 function setStatusBadge(label, tone) {
   elements.statusBadge.textContent = label;
   elements.statusBadge.className = `pill ${tone || 'muted'}`;
+}
+
+function setWindowMaximized(maximized) {
+  if (!elements.toggleMaximizeBtn || !elements.maximizeIcon) {
+    return;
+  }
+
+  elements.toggleMaximizeBtn.setAttribute('aria-label', maximized ? 'Restore Down' : 'Maximize');
+  elements.maximizeIcon.setAttribute(
+    'd',
+    maximized
+      ? 'M5 3.5h7.5V11M4 5h7.5v7.5H4z'
+      : 'M3.5 3.5h9v9h-9z'
+  );
 }
 
 function populateDrives(drives) {
@@ -397,6 +414,9 @@ function handleAppEvent(event) {
   switch (event.type) {
     case 'status':
       setStatusBadge(event.label, event.tone);
+      break;
+    case 'window-maximized':
+      setWindowMaximized(Boolean(event.maximized));
       break;
     case 'running':
       setRunningState(event.running, event.task);

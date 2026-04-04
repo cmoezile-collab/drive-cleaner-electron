@@ -26,13 +26,15 @@
         <div class="pill muted" id="statusBadge">IDLE</div>
         <div class="window-controls">
           <button class="window-btn" data-window-action="minimize" aria-label="Minimize">
-            <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5h8" /></svg>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5h10" /></svg>
           </button>
-          <button class="window-btn" data-window-action="toggle-maximize" aria-label="Maximize">
-            <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2h6v6H2z" /></svg>
+          <button class="window-btn" id="toggleMaximizeBtn" data-window-action="toggle-maximize" aria-label="Maximize">
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <path id="maximizeIcon" d="M3.5 3.5h9v9h-9z" />
+            </svg>
           </button>
           <button class="window-btn close" data-window-action="close" aria-label="Close">
-            <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2L2 8" /></svg>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
           </button>
         </div>
       </div>
