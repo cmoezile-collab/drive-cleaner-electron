@@ -1,2 +1,8 @@
 node_modules/
 dist/
+*.zip
+*.exe
+*.msi
+*.blockmap
+Thumbs.db
+desktop.ini
