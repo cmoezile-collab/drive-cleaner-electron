@@ -333,3 +333,11 @@ This updated report is intended to reflect the actual present implementation rat
 
 ## Conclusion
 Drive Cleaner by Clark is currently a functional Windows utility with a solid custom UI shell, secure Electron setup, live task reporting, and working operational flows for drive cleanup and formatting. The latest refinements improved polish in two visible areas: scroll behavior and titlebar controls. The project is in a good state for continued UI refinement, testing, and feature expansion.
+
+---
+
+## 2026-04-04 Maintenance Update
+
+- Added a custom NSIS installer hook at [`build/installer.nsh`](e:\Code_HQ\Drive Cleaner by Clark\build\installer.nsh) to recreate Start Menu and desktop shortcuts from the installed executable path.
+- Rebuilt fresh Windows setup and portable artifacts on April 4, 2026 so future installs use corrected shortcut metadata and icon paths.
+- This update specifically addresses the blank Start Menu icon issue caused by inconsistent shortcut target/icon resolution on installed systems.
