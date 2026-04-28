@@ -1,9 +1,10 @@
-const { app, BrowserWindow, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell, clipboard, nativeTheme } = require('electron');
 const fs = require('fs');
 const fsp = require('fs/promises');
 const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
+const packageJson = require('./package.json');
 
 const APP_TITLE = 'DRIVE CLEANER | by Clark';
 const WINDOW_BACKGROUND = '#09090B';
@@ -15,7 +16,229 @@ const DRIVE_TYPES = {
   5: 'Optical'
 };
 
+const OUTPUT_CAP_CHARS = 1024 * 1024;
+const VALID_CLEAN_MODES = new Set(['unhide', 'scan', 'full']);
+const VALID_FILESYSTEMS = new Set(['NTFS', 'exFAT', 'FAT32']);
+const VALID_FORMAT_TYPES = new Set(['Quick', 'Full']);
+const FORMAT_BLOCKED_DRIVE_TYPES = new Set(['Network', 'Optical', 'Unknown']);
+const FORMAT_ALLOWED_DRIVE_TYPES = new Set(['Removable']);
+const VALID_APPEARANCE_MODES = new Set(['dark', 'light', 'system']);
+
+function normalizeAccentColor(value) {
+  const text = String(value || '').trim();
+  return /^#[0-9a-f]{6}$/i.test(text) ? text.toLowerCase() : ACCENT_COLOR;
+}
+
+function normalizeAppearancePayload(payload) {
+  const source = payload && typeof payload === 'object' ? payload : {};
+  const mode = VALID_APPEARANCE_MODES.has(String(source.mode || '').toLowerCase()) ? String(source.mode).toLowerCase() : 'dark';
+  return { mode, accentColor: normalizeAccentColor(source.accentColor) };
+}
+
+function applyWindowAppearance(mode = 'dark', accentColor = ACCENT_COLOR) {
+  const normalizedMode = VALID_APPEARANCE_MODES.has(String(mode || '').toLowerCase()) ? String(mode).toLowerCase() : 'dark';
+  const normalizedAccent = normalizeAccentColor(accentColor);
+  try { nativeTheme.themeSource = normalizedMode; } catch (_error) {}
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    try {
+      if (typeof mainWindow.setAccentColor === 'function') mainWindow.setAccentColor(normalizedAccent);
+      if (typeof mainWindow.setBackgroundMaterial === 'function') mainWindow.setBackgroundMaterial(nativeTheme.shouldUseDarkColors ? 'mica' : 'mica');
+      if (typeof mainWindow.setBackgroundColor === 'function') mainWindow.setBackgroundColor(nativeTheme.shouldUseDarkColors ? WINDOW_BACKGROUND : '#eaf0f7');
+    } catch (_error) {}
+  }
+  return { ok: true, mode: normalizedMode, effective: nativeTheme.shouldUseDarkColors ? 'dark' : 'light', accentColor: normalizedAccent };
+}
+
+function normalizeDriveId(driveId) {
+  const value = String(driveId || '').trim().toUpperCase();
+  return /^[A-Z]:$/.test(value) ? value : null;
+}
+
+function isSystemDriveId(driveId) {
+  const normalized = normalizeDriveId(driveId);
+  const systemDrive = normalizeDriveId(process.env.SystemDrive || 'C:');
+  return Boolean(normalized && systemDrive && normalized === systemDrive);
+}
+
+function sanitizeVolumeLabel(label) {
+  return String(label || '')
+    .replace(/[<>:"/\|?*.,;+=\[\]\x00-\x1F]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 32);
+}
+
+function normalizeCleanPayload(payload) {
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('Invalid clean request.');
+  }
+  const mode = VALID_CLEAN_MODES.has(payload.mode) ? payload.mode : 'full';
+  const driveId = normalizeDriveId(payload.driveId);
+  if (!driveId) {
+    throw new Error('Invalid drive selection.');
+  }
+  const rawSettings = payload.settings || {};
+  const settings = {
+    unhide: Boolean(rawSettings.unhide),
+    scan: Boolean(rawSettings.scan),
+    autoQuarantine: Boolean(rawSettings.autoQuarantine),
+    bootSectorScan: Boolean(rawSettings.bootSectorScan),
+    cpuThrottling: Boolean(rawSettings.cpuThrottling),
+    showSystem: Boolean(rawSettings.showSystem)
+  };
+  return { mode, driveId, settings };
+}
+
+function normalizeFormatPayload(payload) {
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('Invalid format request.');
+  }
+  const driveId = normalizeDriveId(payload.driveId);
+  if (!driveId) {
+    throw new Error('Invalid drive selection.');
+  }
+  const filesystem = VALID_FILESYSTEMS.has(String(payload.filesystem || '').trim())
+    ? String(payload.filesystem).trim()
+    : 'NTFS';
+  const formatType = VALID_FORMAT_TYPES.has(String(payload.formatType || '').trim())
+    ? String(payload.formatType).trim()
+    : 'Quick';
+  return {
+    driveId,
+    filesystem,
+    formatType,
+    label: sanitizeVolumeLabel(payload.label),
+    challenge: normalizeDriveId(payload.challenge)
+  };
+}
+
+function getDriveRiskInfo(drive) {
+  if (!drive) {
+    return {
+      tone: 'danger',
+      label: 'NO DRIVE',
+      summary: 'No target drive selected.',
+      canClean: false,
+      canScan: false,
+      canUnhide: false,
+      canFullClean: false,
+      canFormat: false
+    };
+  }
+
+  const isSystem = Boolean(drive.isSystemDrive || isSystemDriveId(drive.id));
+  const blockedType = drive.type === 'Network' || drive.type === 'Optical' || drive.type === 'Unknown';
+  const canScan = !blockedType;
+  const canUnhide = !isSystem && !blockedType;
+  const canFullClean = canUnhide && canScan;
+  const canFormat = !isSystem && FORMAT_ALLOWED_DRIVE_TYPES.has(drive.type) && Number(drive.sizeBytes || 0) > 0;
+
+  if (isSystem) {
+    return {
+      tone: 'danger',
+      label: 'SYSTEM DRIVE',
+      summary: 'Scan-only. Unhide, full clean, and format are blocked on the Windows system drive.',
+      canClean: false,
+      canScan,
+      canUnhide: false,
+      canFullClean: false,
+      canFormat: false
+    };
+  }
+
+  if (blockedType) {
+    return {
+      tone: 'danger',
+      label: String(drive.type || 'UNSUPPORTED').toUpperCase(),
+      summary: `${drive.type || 'This'} drive type is blocked for DCC clean and format operations.`,
+      canClean: false,
+      canScan: false,
+      canUnhide: false,
+      canFullClean: false,
+      canFormat: false
+    };
+  }
+
+  if (drive.type === 'Removable') {
+    return {
+      tone: 'success',
+      label: 'REMOVABLE',
+      summary: 'Preferred target type. Clean, scan, and guarded format are available with confirmation.',
+      canClean: true,
+      canScan: true,
+      canUnhide: true,
+      canFullClean: true,
+      canFormat
+    };
+  }
+
+  if (drive.type === 'Fixed') {
+    return {
+      tone: 'warning',
+      label: 'FIXED DRIVE',
+      summary: 'High caution. Scan, unhide, and full clean are available. Formatting fixed drives is blocked in this release.',
+      canClean: true,
+      canScan: true,
+      canUnhide: true,
+      canFullClean: true,
+      canFormat
+    };
+  }
+
+  return {
+    tone: 'warning',
+    label: String(drive.type || 'UNKNOWN').toUpperCase(),
+    summary: 'Review this target carefully before running any action.',
+    canClean: true,
+    canScan: true,
+    canUnhide: true,
+    canFullClean: true,
+    canFormat
+  };
+}
+
+async function requireKnownDrive(driveId) {
+  const normalized = normalizeDriveId(driveId);
+  if (!normalized) {
+    throw new Error('Invalid drive selection.');
+  }
+  const drives = await getDrives();
+  const selected = drives.find((drive) => normalizeDriveId(drive.id) === normalized);
+  if (!selected) {
+    throw new Error(`Drive ${normalized} is no longer connected.`);
+  }
+  return selected;
+}
+
+function shouldBlockSystemUnhide(options) {
+  const settings = options.settings || {};
+  const unhideRequested = (options.mode === 'unhide' || options.mode === 'full') && settings.unhide;
+  return unhideRequested && isSystemDriveId(options.driveId);
+}
+
+function appendCappedOutput(sink, text) {
+  if (!text) return;
+  sink.totalChars = sink.totalChars || 0;
+  if (sink.totalChars >= OUTPUT_CAP_CHARS) {
+    if (!sink.truncated) {
+      sink.push('\n[output truncated]\n');
+      sink.truncated = true;
+    }
+    return;
+  }
+  const remaining = OUTPUT_CAP_CHARS - sink.totalChars;
+  const chunk = text.length > remaining ? text.slice(0, remaining) : text;
+  sink.push(chunk);
+  sink.totalChars += chunk.length;
+  if (chunk.length < text.length && !sink.truncated) {
+    sink.push('\n[output truncated]\n');
+    sink.truncated = true;
+  }
+}
+
 let mainWindow = null;
+let lastDriveEnumerationReport = null;
+
 const taskState = {
   running: false,
   task: null,
@@ -42,11 +265,36 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false
     }
   });
 
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) {
+      shell.openExternal(url).catch(() => {});
+    }
+    return { action: 'deny' };
+  });
+
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (!String(url || '').startsWith('file://')) {
+      event.preventDefault();
+    }
+  });
+
+  mainWindow.webContents.on('will-attach-webview', (event) => {
+    event.preventDefault();
+  });
+
+  mainWindow.webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) => {
+    callback(false);
+  });
+  mainWindow.webContents.session.setPermissionCheckHandler(() => false);
+
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
   });
@@ -161,7 +409,7 @@ function attachLineReader(stream, onLine, sink) {
 
   stream.on('data', (chunk) => {
     const text = chunk.toString();
-    sink.push(text);
+    appendCappedOutput(sink, text);
     buffer += text;
     const lines = buffer.split(/\r?\n/);
     buffer = lines.pop() ?? '';
@@ -255,17 +503,25 @@ async function checkAdmin() {
   }
 }
 
+function quoteWindowsProcessArg(value) {
+  const raw = String(value ?? '');
+  const escaped = raw.replace(/\\(?=\")/g, '\\\\').replace(/"/g, '\\"');
+  return `"${escaped}"`;
+}
+
 async function relaunchAsAdministrator() {
-  const args = process.defaultApp
+  const rawArgs = process.defaultApp
     ? [app.getAppPath(), ...process.argv.slice(2)]
     : process.argv.slice(1);
 
+  const quotedArgs = rawArgs.map(quoteWindowsProcessArg);
+
   const script = [
-    `Start-Process -FilePath ${psQuote(process.execPath)}`,
-    `-WorkingDirectory ${psQuote(process.cwd())}`,
-    `-ArgumentList ${psArray(args)}`,
-    '-Verb RunAs'
-  ].join(' ');
+    `$exe = ${psQuote(process.execPath)}`,
+    `$cwd = ${psQuote(process.cwd())}`,
+    `$args = ${psArray(quotedArgs)}`,
+    'Start-Process -FilePath $exe -WorkingDirectory $cwd -ArgumentList $args -Verb RunAs'
+  ].join('; ');
 
   const result = await runProcess('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script], {
     timeoutMs: 15000
@@ -304,42 +560,200 @@ async function ensureAdminOnLaunch() {
   return true;
 }
 
-async function getDrives() {
+function mapDriveEntry(entry) {
+  const id = String(entry.DeviceID || entry.Name || '').trim().toUpperCase();
+  const normalizedId = normalizeDriveId(id);
+  if (!normalizedId) {
+    return null;
+  }
+  const pathValue = `${normalizedId}\\`;
+  const source = String(entry.Provider || entry.Source || 'unknown').trim() || 'unknown';
+  const typeName = String(entry.DriveTypeName || entry.Type || '').trim();
+  let type = DRIVE_TYPES[Number(entry.DriveType)] || typeName || 'Unknown';
+  if (/^cdrom$/i.test(type)) type = 'Optical';
+  if (!['Removable', 'Fixed', 'Network', 'Optical', 'Unknown'].includes(type)) type = 'Unknown';
+  const label = String(entry.VolumeName || entry.Label || '').trim() || 'No Label';
+  const sizeBytes = Number(entry.Size || entry.TotalSize || 0);
+  const sizeText = formatBytes(sizeBytes);
+  return {
+    id: normalizedId,
+    path: pathValue,
+    type,
+    label,
+    sizeBytes,
+    sizeText,
+    source,
+    display: `${normalizedId}  [${type}]  ${label}  ${sizeText}`,
+    isSystemDrive: isSystemDriveId(normalizedId),
+    risk: isSystemDriveId(normalizedId) ? 'SYSTEM' : type.toUpperCase()
+  };
+}
+
+function normalizeDriveEntries(raw) {
+  return normalizeJsonList(raw)
+    .map(mapDriveEntry)
+    .filter(Boolean)
+    .sort((a, b) => a.id.localeCompare(b.id));
+}
+
+function mergeDriveLists(lists) {
+  const byId = new Map();
+  for (const list of lists) {
+    for (const drive of list || []) {
+      if (!drive || !drive.id) continue;
+      const existing = byId.get(drive.id);
+      if (!existing) {
+        byId.set(drive.id, drive);
+        continue;
+      }
+      const existingScore = (existing.type !== 'Unknown' ? 4 : 0) + (existing.sizeBytes > 0 ? 2 : 0) + (existing.label !== 'No Label' ? 1 : 0);
+      const nextScore = (drive.type !== 'Unknown' ? 4 : 0) + (drive.sizeBytes > 0 ? 2 : 0) + (drive.label !== 'No Label' ? 1 : 0);
+      if (nextScore > existingScore) {
+        byId.set(drive.id, drive);
+      }
+    }
+  }
+  return [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+}
+
+async function getDrivesFromCim() {
   const script = [
-    '$drives = Get-CimInstance Win32_LogicalDisk | Select-Object DeviceID,DriveType,VolumeName,Size',
-    '$drives | ConvertTo-Json -Compress'
+    "$ErrorActionPreference = 'Stop'",
+    "$drives = Get-CimInstance Win32_LogicalDisk | Select-Object DeviceID,DriveType,VolumeName,Size,@{Name='Provider';Expression={'CIM'}}",
+    "@($drives) | ConvertTo-Json -Compress -Depth 3"
   ].join('; ');
 
   const result = await runProcess('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script], {
-    timeoutMs: 10000
+    timeoutMs: 12000
   });
 
-  const drives = normalizeJsonList(result.stdout);
-  return drives
-    .filter((entry) => entry && entry.DeviceID)
-    .map((entry) => {
-      const id = String(entry.DeviceID).trim();
-      const pathValue = id.endsWith(':') ? `${id}\\` : id;
-      const type = DRIVE_TYPES[Number(entry.DriveType)] || 'Unknown';
-      const label = String(entry.VolumeName || '').trim() || 'No Label';
-      const sizeText = formatBytes(entry.Size);
-      return {
-        id,
-        path: pathValue,
-        type,
-        label,
-        sizeBytes: Number(entry.Size || 0),
-        sizeText,
-        display: `${id}  [${type}]  ${label}  ${sizeText}`
-      };
-    });
+  if (result.code !== 0) {
+    throw new Error(result.stderr.trim() || `Get-CimInstance failed with code ${result.code}.`);
+  }
+
+  return normalizeDriveEntries(result.stdout);
+}
+
+async function getDrivesFromDriveInfo() {
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    "$drives = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.Name -and $_.Name.Length -ge 2 -and $_.Name.Substring(1,1) -eq ':' -and $_.IsReady } | ForEach-Object {",
+    "  $driveType = switch ($_.DriveType.ToString()) { 'Removable' { 2 } 'Fixed' { 3 } 'Network' { 4 } 'CDRom' { 5 } default { 0 } }",
+    "  [PSCustomObject]@{ DeviceID = $_.Name.Substring(0,2); DriveType = $driveType; DriveTypeName = $_.DriveType.ToString(); VolumeName = $_.VolumeLabel; Size = [int64]$_.TotalSize; Provider = 'DriveInfo' }",
+    "}",
+    "@($drives) | ConvertTo-Json -Compress -Depth 3"
+  ].join('; ');
+
+  const result = await runProcess('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script], {
+    timeoutMs: 12000
+  });
+
+  if (result.code !== 0) {
+    throw new Error(result.stderr.trim() || `DriveInfo fallback failed with code ${result.code}.`);
+  }
+
+  return normalizeDriveEntries(result.stdout);
+}
+
+async function getDrivesFromPsDriveFallback() {
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    "$drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -and $_.Root.Length -ge 2 -and $_.Root.Substring(1,1) -eq ':' } | ForEach-Object {",
+    "  $size = 0",
+    "  if ($null -ne $_.Used -and $null -ne $_.Free) { $size = [int64]($_.Used + $_.Free) }",
+    "  [PSCustomObject]@{ DeviceID = $_.Root.Substring(0,2); DriveType = 3; VolumeName = $_.Description; Size = $size; Provider = 'PSDrive' }",
+    "}",
+    "@($drives) | ConvertTo-Json -Compress -Depth 3"
+  ].join('; ');
+
+  const result = await runProcess('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script], {
+    timeoutMs: 12000
+  });
+
+  if (result.code !== 0) {
+    throw new Error(result.stderr.trim() || `Get-PSDrive fallback failed with code ${result.code}.`);
+  }
+
+  return normalizeDriveEntries(result.stdout);
+}
+
+function getDrivesFromNodeRoots() {
+  const drives = [];
+  for (let code = 65; code <= 90; code += 1) {
+    const letter = String.fromCharCode(code);
+    const id = `${letter}:`;
+    const rootPath = `${id}\\`;
+    try {
+      const stat = fs.statSync(rootPath);
+      if (!stat || !stat.isDirectory()) continue;
+      drives.push(mapDriveEntry({
+        DeviceID: id,
+        DriveType: 3,
+        VolumeName: isSystemDriveId(id) ? 'System Drive' : 'Detected Drive',
+        Size: 0,
+        Provider: 'NodeRoots'
+      }));
+    } catch (_error) {
+      // Drive letter is absent or inaccessible. Keep scanning the alphabet.
+    }
+  }
+  return drives.filter(Boolean);
+}
+
+async function getDrives() {
+  const attempts = [];
+  const lists = [];
+
+  async function tryProvider(name, provider) {
+    try {
+      const drives = await provider();
+      attempts.push({ provider: name, ok: true, count: drives.length });
+      if (drives.length) lists.push(drives);
+    } catch (error) {
+      attempts.push({ provider: name, ok: false, error: error.message || String(error) });
+    }
+  }
+
+  await tryProvider('CIM', getDrivesFromCim);
+  await tryProvider('DriveInfo', getDrivesFromDriveInfo);
+  await tryProvider('PSDrive', getDrivesFromPsDriveFallback);
+
+  try {
+    const nodeDrives = getDrivesFromNodeRoots();
+    attempts.push({ provider: 'NodeRoots', ok: true, count: nodeDrives.length });
+    if (nodeDrives.length) lists.push(nodeDrives);
+  } catch (error) {
+    attempts.push({ provider: 'NodeRoots', ok: false, error: error.message || String(error) });
+  }
+
+  const merged = mergeDriveLists(lists);
+  lastDriveEnumerationReport = {
+    generatedAt: new Date().toISOString(),
+    attempts,
+    returned: merged.length
+  };
+
+  if (merged.length) {
+    return merged;
+  }
+
+  const details = attempts.map((attempt) => attempt.ok
+    ? `${attempt.provider}: ${attempt.count} drive(s)`
+    : `${attempt.provider}: ${attempt.error}`).join(' | ');
+  throw new Error(`Drive enumeration failed. ${details}`);
+}
+
+async function loadDrivesSafe() {
+  try {
+    return { drives: await getDrives(), driveLoadError: null };
+  } catch (error) {
+    return { drives: [], driveLoadError: error.message || 'Drive enumeration failed.' };
+  }
 }
 
 function ensureDrivePath(driveId) {
-  if (!driveId || typeof driveId !== 'string' || !driveId.includes(':')) {
-    return null;
-  }
-  return driveId.endsWith(':') ? `${driveId}\\` : driveId;
+  const normalized = normalizeDriveId(driveId);
+  return normalized ? `${normalized}\\` : null;
 }
 
 function stopFormatPulse() {
@@ -646,9 +1060,7 @@ async function getDriveSizeBytes(driveLetter) {
 }
 
 function sanitizeLabel(label) {
-  return String(label || '')
-    .replace(/["\r\n]/g, '')
-    .trim();
+  return sanitizeVolumeLabel(label);
 }
 
 async function startFormatTask(options) {
@@ -658,9 +1070,9 @@ async function startFormatTask(options) {
   setStatus('FORMATTING', 'danger');
   updateFormatProgress(0, 'Starting...');
 
-  const driveId = options.driveId;
-  const filesystem = String(options.filesystem || 'NTFS').trim();
-  const formatType = String(options.formatType || 'Quick').trim();
+  const driveId = normalizeDriveId(options.driveId);
+  const filesystem = VALID_FILESYSTEMS.has(String(options.filesystem || '').trim()) ? String(options.filesystem).trim() : 'NTFS';
+  const formatType = VALID_FORMAT_TYPES.has(String(options.formatType || '').trim()) ? String(options.formatType).trim() : 'Quick';
   const label = sanitizeLabel(options.label);
 
   try {
@@ -672,7 +1084,7 @@ async function startFormatTask(options) {
     log('format', `Filesystem: ${filesystem}  |  Label: ${label || 'none'}`, 'dim');
     log('format', '─'.repeat(52), 'dim', false);
 
-    const driveLetter = driveId.replace(':', '').trim();
+    const driveLetter = driveId.slice(0, 1);
 
     if (filesystem === 'FAT32') {
       try {
@@ -778,47 +1190,191 @@ async function startFormatTask(options) {
   }
 }
 
-ipcMain.handle('app:init', async () => {
-  const [admin, drives] = await Promise.all([
+function isTrustedSender(event) {
+  return Boolean(mainWindow && !mainWindow.isDestroyed() && event.sender === mainWindow.webContents);
+}
+
+function buildDiagnosticsPayload(admin, drives) {
+  const systemDrive = normalizeDriveId(process.env.SystemDrive || 'C:') || 'C:';
+  return {
+    ok: true,
+    generatedAt: new Date().toISOString(),
+    appName: APP_TITLE,
+    version: packageJson.version || '0.0.0',
+    packaged: app.isPackaged,
+    platform: `${process.platform} ${process.arch}`,
+    versions: {
+      electron: process.versions.electron,
+      chrome: process.versions.chrome,
+      node: process.versions.node
+    },
+    admin,
+    systemDrive,
+    activeTask: {
+      running: taskState.running,
+      task: taskState.task,
+      cancelled: taskState.cancelled
+    },
+    appearance: {
+      mode: nativeTheme.themeSource,
+      effective: nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
+    },
+    drives: drives.map((drive) => ({
+      id: drive.id,
+      type: drive.type,
+      label: drive.label,
+      sizeText: drive.sizeText,
+      source: drive.source || 'unknown',
+      isSystemDrive: Boolean(drive.isSystemDrive),
+      risk: getDriveRiskInfo(drive)
+    })),
+    driveEnumeration: lastDriveEnumerationReport,
+    security: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+      permissions: 'denied by default',
+      webview: 'blocked',
+      navigation: 'local app only',
+      ipc: 'trusted renderer only',
+      outputCap: OUTPUT_CAP_CHARS
+    },
+    safetyRules: [
+      'Format is blocked on the Windows system drive.',
+      'Unhide and full clean are blocked on the Windows system drive.',
+      'Network and optical drives are blocked for DCC clean/format operations.',
+      'Formatting is limited to removable drives in this release.',
+      'Formatting requires two confirmations and exact typed drive ID challenge.',
+      'Child-process output is capped to reduce runaway memory use.'
+    ]
+  };
+}
+
+function secureHandle(channel, handler) {
+  ipcMain.handle(channel, async (event, ...args) => {
+    if (!isTrustedSender(event)) {
+      return { ok: false, message: 'Blocked untrusted renderer request.' };
+    }
+    try {
+      return await handler(event, ...args);
+    } catch (error) {
+      const message = error && error.message ? error.message : 'Request failed.';
+      return { ok: false, message };
+    }
+  });
+}
+
+function secureOn(channel, handler) {
+  ipcMain.on(channel, (event, ...args) => {
+    if (!isTrustedSender(event)) {
+      return;
+    }
+    handler(event, ...args);
+  });
+}
+
+secureHandle('app:init', async () => {
+  const [admin, driveState] = await Promise.all([
     checkAdmin(),
-    getDrives().catch(() => [])
+    loadDrivesSafe()
   ]);
 
   return {
+    ok: true,
     appName: APP_TITLE,
     admin,
-    drives,
-    maximized: mainWindow ? mainWindow.isMaximized() : false
+    drives: driveState.drives,
+    driveLoadError: driveState.driveLoadError,
+    maximized: mainWindow ? mainWindow.isMaximized() : false,
+    appearance: { mode: nativeTheme.themeSource, effective: nativeTheme.shouldUseDarkColors ? 'dark' : 'light' }
   };
 });
 
-ipcMain.handle('drives:list', async () => {
+secureHandle('drives:list', async () => {
   return getDrives();
 });
 
-ipcMain.handle('clean:start', async (_event, payload) => {
+secureHandle('app:diagnostics', async () => {
+  const [admin, driveState] = await Promise.all([
+    checkAdmin(),
+    loadDrivesSafe()
+  ]);
+  const diagnostics = buildDiagnosticsPayload(admin, driveState.drives);
+  diagnostics.driveLoadError = driveState.driveLoadError;
+  return diagnostics;
+});
+
+secureHandle('appearance:set', async (_event, payload) => {
+  const options = normalizeAppearancePayload(payload);
+  return applyWindowAppearance(options.mode, options.accentColor);
+});
+
+secureHandle('clipboard:write', async (_event, text) => {
+  const value = String(text || '').slice(0, 24000);
+  clipboard.writeText(value);
+  return { ok: true };
+});
+
+secureHandle('clean:start', async (_event, payload) => {
   if (taskState.running) {
     return { ok: false, message: 'Another task is already running.' };
   }
-  startCleanTask(payload).catch((error) => {
+
+  const options = normalizeCleanPayload(payload);
+  const selected = await requireKnownDrive(options.driveId);
+
+  if (shouldBlockSystemUnhide(options)) {
+    return { ok: false, message: 'Unhide operations are blocked on the Windows system drive for safety. Use scan-only for the system drive.' };
+  }
+
+  if (selected.type === 'Network' || selected.type === 'Optical') {
+    return { ok: false, message: `${selected.type} drives are not supported for clean operations.` };
+  }
+
+  startCleanTask(options).catch((error) => {
     setStatus('ERROR', 'danger');
     log('clean', `Unexpected error: ${error.message}`, 'red');
   });
   return { ok: true };
 });
 
-ipcMain.handle('format:start', async (_event, payload) => {
+secureHandle('format:start', async (_event, payload) => {
   if (taskState.running) {
     return { ok: false, message: 'Another task is already running.' };
   }
-  startFormatTask(payload).catch((error) => {
+
+  const options = normalizeFormatPayload(payload);
+  const selected = await requireKnownDrive(options.driveId);
+
+  if (isSystemDriveId(options.driveId)) {
+    return { ok: false, message: 'Formatting the Windows system drive is blocked.' };
+  }
+
+  if (FORMAT_BLOCKED_DRIVE_TYPES.has(selected.type)) {
+    return { ok: false, message: `${selected.type} drives are not supported for formatting.` };
+  }
+
+  if (!FORMAT_ALLOWED_DRIVE_TYPES.has(selected.type)) {
+    return { ok: false, message: 'Formatting is limited to removable drives in this release. This protects internal and fixed disks from accidental wipe.' };
+  }
+
+  if (!selected.sizeBytes || selected.sizeBytes <= 0) {
+    return { ok: false, message: 'Drive size could not be verified. Formatting blocked.' };
+  }
+
+  if (options.challenge !== options.driveId) {
+    return { ok: false, message: `Format challenge failed. Type ${options.driveId} exactly before formatting.` };
+  }
+
+  startFormatTask(options).catch((error) => {
     setStatus('ERROR', 'danger');
     log('format', `Unexpected error: ${error.message}`, 'red');
   });
   return { ok: true };
 });
 
-ipcMain.handle('task:stop', async () => {
+secureHandle('task:stop', async () => {
   if (!taskState.running) {
     return { ok: false, message: 'No active task.' };
   }
@@ -838,7 +1394,7 @@ ipcMain.handle('task:stop', async () => {
   return { ok: true };
 });
 
-ipcMain.on('window:action', (_event, action) => {
+secureOn('window:action', (_event, action) => {
   if (!mainWindow || mainWindow.isDestroyed()) {
     return;
   }

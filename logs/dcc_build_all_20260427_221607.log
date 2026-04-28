@@ -1,0 +1,392 @@
+[Mon 04/27/2026 22:16:08.01] Node version 
+CMD: node --version 
+v24.14.1
+[Mon 04/27/2026 22:16:08.04] npm version 
+CMD: npm --version 
+11.11.0
+[Mon 04/27/2026 22:16:08.23] Install / refresh dependencies 
+CMD: npm install 
+
+up to date, audited 311 packages in 2s
+
+48 packages are looking for funding
+  run `npm fund` for details
+
+13 vulnerabilities (4 low, 1 moderate, 8 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+[Mon 04/27/2026 22:16:10.47] Lock DCC branding assets 
+CMD: npm run branding:lock 
+
+> drive-cleaner-by-clark@1.0.0 branding:lock
+> powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/generate-icon.ps1 && node scripts/dcc-branding-check.js
+
+DCC branding lock
+Project: E:\Code_HQ\Drive Cleaner by Clark
+Mode: preserve canonical assets; no icon regeneration
+[OK] assets/dcc.ico preserved
+[OK] assets/icon.png preserved
+[OK] assets/dcc-logo.png preserved
+[OK] installer BMPs synced from assets/ to build/
+[OK] old generated DCC icon routine disabled
+DCC branding check
+[OK] assets/dcc.ico exists
+[OK] assets/icon.png exists
+[OK] assets/dcc-logo.png exists
+[OK] assets/dcc-logo-256.png exists
+[OK] assets/dcc-logo-128.png exists
+[OK] assets/dcc-logo-64.png exists
+[OK] assets/dcc-mark.svg exists
+[OK] assets/installerHeader.bmp exists
+[OK] assets/installerSidebar.bmp exists
+[OK] build/installerHeader.bmp exists
+[OK] build/installerSidebar.bmp exists
+[OK] assets/installerHeader.bmp is 150x57
+[OK] assets/installerSidebar.bmp is 164x314
+[OK] build header matches canonical assets header
+[OK] build sidebar matches canonical assets sidebar
+[OK] Windows icon path uses assets/dcc.ico
+[OK] NSIS installer icon uses assets/dcc.ico
+[OK] NSIS header path locked to assets
+[OK] NSIS sidebar path locked to assets
+[OK] NSIS uninstaller sidebar path locked to assets
+
+Failures: 0
+DCC branding check passed.
+[Mon 04/27/2026 22:16:10.94] Run DCC RC gates 
+CMD: npm run test:rc 
+
+> drive-cleaner-by-clark@1.0.0 test:rc
+> npm run test:syntax && npm run test:audit && npm run test:doctor && node scripts/dcc-rc-check.js
+
+
+> drive-cleaner-by-clark@1.0.0 test:syntax
+> node --check main.js && node --check preload.js && node --check renderer.js && node --check scripts/dcc-audit.js
+
+
+> drive-cleaner-by-clark@1.0.0 test:audit
+> node scripts/dcc-audit.js
+
+DCC Safety Audit
+Project: E:\Code_HQ\Drive Cleaner by Clark
+
+Core files
+[OK] package.json exists
+[OK] main.js exists
+[OK] preload.js exists
+[OK] renderer.js exists
+[OK] index.html exists
+[OK] styles.css exists
+[OK] assets/dcc.ico exists
+[OK] assets/installerHeader.bmp exists
+[OK] assets/installerSidebar.bmp exists
+[OK] build/installer.nsh exists
+[OK] build_all.bat exists
+[OK] scripts/dcc-audit.js exists
+[OK] scripts/dcc-doctor.js exists
+[OK] scripts/dcc-rc-check.js exists
+
+Package scripts
+[OK] script start is installed
+[OK] script test:syntax is installed
+[OK] script test:audit is installed
+[OK] script test:doctor is installed
+[OK] script test is installed
+[OK] script doctor is installed
+[OK] script test:rc is installed
+[OK] script build:win:rc is installed
+[WARN] npm test exists but does not clearly chain syntax + audit
+[OK] test:rc includes DCC RC check
+
+Package build config
+[OK] package name: drive-cleaner-by-clark
+[OK] version is semver-like: 1.0.0
+[OK] Windows build requests administrator privileges
+[OK] Windows icon uses canonical DCC icon
+[OK] NSIS header uses canonical asset
+[OK] NSIS sidebar uses canonical asset
+[OK] NSIS uninstaller sidebar uses canonical asset
+[OK] packaged: main.js
+[OK] packaged: preload.js
+[OK] packaged: renderer.js
+[OK] packaged: index.html
+[OK] packaged: styles.css
+[OK] packaged: assets/**/*
+
+Electron security
+[OK] contextIsolation enabled
+[OK] nodeIntegration disabled
+[OK] BrowserWindow sandbox enabled
+[OK] webSecurity enabled
+[OK] CSP is present
+[OK] window.open is controlled
+[OK] webview attachment blocked
+[OK] permissions denied by default
+[OK] navigation guard is present
+
+Safety policy
+[OK] administrator/elevation handling is present
+[OK] system-drive policy is present
+[OK] typed drive challenge is enforced
+[OK] formatting uses an explicit drive policy
+[OK] renderer explains drive risk policy
+[OK] preload validates or controls format payloads
+
+Renderer hygiene
+[OK] visible log cap is defined
+[OK] visible log cap is enforced
+[OK] renderer avoids direct HTML injection helpers
+[OK] copy active log control is present
+[OK] renderer can format diagnostics report
+[OK] renderer persists DCC UI preferences
+
+Installer assets
+[OK] installerHeader.bmp is 150x57
+[OK] installerSidebar.bmp is 164x314
+[OK] installerHeader.bmp is 150x57
+[OK] installerSidebar.bmp is 164x314
+[OK] branding check script is present
+
+Toolchain
+[OK] node v24.14.1
+[OK] npm context detected
+
+Summary
+Failures: 0
+Warnings: 1
+
+DCC audit passed.
+Warnings are non-blocking, but review them before final release.
+
+> drive-cleaner-by-clark@1.0.0 test:doctor
+> npm run doctor
+
+
+> drive-cleaner-by-clark@1.0.0 doctor
+> node scripts/dcc-doctor.js
+
+DCC Doctor
+Project: E:\Code_HQ\Drive Cleaner by Clark
+[OK] package.json readable
+
+Release files
+[OK] build_all.bat exists
+[OK] scripts/dcc-audit.js exists
+[OK] scripts/dcc-doctor.js exists
+[OK] scripts/dcc-rc-check.js exists
+[OK] scripts/dcc-branding-check.js exists
+[OK] scripts/generate-icon.ps1 exists
+[OK] RC_CHECKLIST.md exists
+[OK] ROUND7_RC_STABILIZATION.md exists
+
+NPM scripts
+[OK] doctor script installed
+[OK] test:rc runs RC gate
+[OK] test:rc runs syntax checks
+[OK] test:rc runs audit checks
+[OK] test:rc runs doctor checks
+[OK] build:win:rc runs RC gates first
+[OK] branding:lock verifies canonical branding
+
+Critical safety gates
+[OK] main.js readable
+[OK] renderer.js readable
+[OK] preload.js readable
+[OK] format allowlist is removable-only
+[OK] network/optical format blocklist is present
+[OK] system drive format blocking is present
+[OK] main process requires known connected drive
+[OK] main process enforces typed challenge
+[OK] renderer shows typed challenge input
+[OK] renderer displays drive policy
+[OK] renderer updates target safety and action states
+[OK] child process output cap is present
+[OK] renderer log cap is present
+[OK] preload exposes sanitized IPC bridge
+
+Branding/build gates
+[OK] Windows icon path uses assets/dcc.ico
+[OK] Windows admin execution level is configured
+[OK] NSIS installer icon uses assets/dcc.ico
+[OK] NSIS uninstaller icon uses assets/dcc.ico
+[OK] installer header points to assets
+[OK] installer sidebar points to assets
+[OK] uninstaller sidebar points to assets
+[OK] assets/dcc.ico exists
+[OK] assets/icon.png exists
+[OK] assets/dcc-logo.png exists
+[OK] assets/dcc-mark.svg exists
+[OK] assets/installerHeader.bmp exists
+[OK] assets/installerSidebar.bmp exists
+[OK] assets/installerHeader.bmp dimensions are 150x57
+[OK] assets/installerSidebar.bmp dimensions are 164x314
+[OK] build/installerHeader.bmp exists
+[OK] build/installerSidebar.bmp exists
+[OK] build header matches canonical assets header
+[OK] build sidebar matches canonical assets sidebar
+[OK] generate-icon.ps1 is branding lock, not icon generator
+[OK] old generated icon drawing routine is disabled
+[OK] build_all runs branding lock before RC gate
+[OK] build_all runs RC gate
+[OK] build_all re-locks branding before packaging
+[OK] build_all reminds manual QA
+
+Electron/security hygiene
+[OK] contextIsolation is enabled
+[OK] nodeIntegration is disabled
+[OK] renderer sandbox is enabled
+[OK] webSecurity is enabled
+[OK] external window opens are denied
+[OK] unexpected navigation is blocked
+[OK] permission requests are denied
+[OK] IPC sender trust check is present
+[OK] renderer avoids direct HTML injection
+[OK] index.html readable
+[OK] index.html avoids inline event handlers
+[OK] CSP default-src self is set
+
+Summary
+Failures: 0
+Warnings: 0
+DCC doctor passed.
+DCC RC Gate
+Project: E:\Code_HQ\Drive Cleaner by Clark
+[OK] package.json readable
+
+Release files
+[OK] build_all.bat exists
+[OK] scripts/dcc-audit.js exists
+[OK] scripts/dcc-doctor.js exists
+[OK] scripts/dcc-rc-check.js exists
+[OK] scripts/dcc-branding-check.js exists
+[OK] scripts/generate-icon.ps1 exists
+[OK] RC_CHECKLIST.md exists
+[OK] ROUND7_RC_STABILIZATION.md exists
+
+NPM scripts
+[OK] doctor script installed
+[OK] test:rc runs RC gate
+[OK] test:rc runs syntax checks
+[OK] test:rc runs audit checks
+[OK] test:rc runs doctor checks
+[OK] build:win:rc runs RC gates first
+[OK] branding:lock verifies canonical branding
+
+Critical safety gates
+[OK] main.js readable
+[OK] renderer.js readable
+[OK] preload.js readable
+[OK] format allowlist is removable-only
+[OK] network/optical format blocklist is present
+[OK] system drive format blocking is present
+[OK] main process requires known connected drive
+[OK] main process enforces typed challenge
+[OK] renderer shows typed challenge input
+[OK] renderer displays drive policy
+[OK] renderer updates target safety and action states
+[OK] child process output cap is present
+[OK] renderer log cap is present
+[OK] preload exposes sanitized IPC bridge
+
+Branding/build gates
+[OK] Windows icon path uses assets/dcc.ico
+[OK] Windows admin execution level is configured
+[OK] NSIS installer icon uses assets/dcc.ico
+[OK] NSIS uninstaller icon uses assets/dcc.ico
+[OK] installer header points to assets
+[OK] installer sidebar points to assets
+[OK] uninstaller sidebar points to assets
+[OK] assets/dcc.ico exists
+[OK] assets/icon.png exists
+[OK] assets/dcc-logo.png exists
+[OK] assets/dcc-mark.svg exists
+[OK] assets/installerHeader.bmp exists
+[OK] assets/installerSidebar.bmp exists
+[OK] assets/installerHeader.bmp dimensions are 150x57
+[OK] assets/installerSidebar.bmp dimensions are 164x314
+[OK] build/installerHeader.bmp exists
+[OK] build/installerSidebar.bmp exists
+[OK] build header matches canonical assets header
+[OK] build sidebar matches canonical assets sidebar
+[OK] generate-icon.ps1 is branding lock, not icon generator
+[OK] old generated icon drawing routine is disabled
+[OK] build_all runs branding lock before RC gate
+[OK] build_all runs RC gate
+[OK] build_all re-locks branding before packaging
+[OK] build_all reminds manual QA
+
+Electron/security hygiene
+[OK] contextIsolation is enabled
+[OK] nodeIntegration is disabled
+[OK] renderer sandbox is enabled
+[OK] webSecurity is enabled
+[OK] external window opens are denied
+[OK] unexpected navigation is blocked
+[OK] permission requests are denied
+[OK] IPC sender trust check is present
+[OK] renderer avoids direct HTML injection
+[OK] index.html readable
+[OK] index.html avoids inline event handlers
+[OK] CSP default-src self is set
+
+Summary
+Failures: 0
+Warnings: 0
+DCC RC gate passed.
+[Mon 04/27/2026 22:16:12.25] Clean dist 
+[Mon 04/27/2026 22:16:12.31] Final branding lock before packaging 
+CMD: npm run branding:lock 
+
+> drive-cleaner-by-clark@1.0.0 branding:lock
+> powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/generate-icon.ps1 && node scripts/dcc-branding-check.js
+
+DCC branding lock
+Project: E:\Code_HQ\Drive Cleaner by Clark
+Mode: preserve canonical assets; no icon regeneration
+[OK] assets/dcc.ico preserved
+[OK] assets/icon.png preserved
+[OK] assets/dcc-logo.png preserved
+[OK] installer BMPs synced from assets/ to build/
+[OK] old generated DCC icon routine disabled
+DCC branding check
+[OK] assets/dcc.ico exists
+[OK] assets/icon.png exists
+[OK] assets/dcc-logo.png exists
+[OK] assets/dcc-logo-256.png exists
+[OK] assets/dcc-logo-128.png exists
+[OK] assets/dcc-logo-64.png exists
+[OK] assets/dcc-mark.svg exists
+[OK] assets/installerHeader.bmp exists
+[OK] assets/installerSidebar.bmp exists
+[OK] build/installerHeader.bmp exists
+[OK] build/installerSidebar.bmp exists
+[OK] assets/installerHeader.bmp is 150x57
+[OK] assets/installerSidebar.bmp is 164x314
+[OK] build header matches canonical assets header
+[OK] build sidebar matches canonical assets sidebar
+[OK] Windows icon path uses assets/dcc.ico
+[OK] NSIS installer icon uses assets/dcc.ico
+[OK] NSIS header path locked to assets
+[OK] NSIS sidebar path locked to assets
+[OK] NSIS uninstaller sidebar path locked to assets
+
+Failures: 0
+DCC branding check passed.
+[Mon 04/27/2026 22:16:12.80] Build Windows installer and portable 
+CMD: npm run build:win 
+
+> drive-cleaner-by-clark@1.0.0 build:win
+> electron-builder --win
+
+  • electron-builder  version=24.13.3 os=10.0.26200
+  • loaded configuration  file=package.json ("build" field)
+  • packaging       platform=win32 arch=x64 electron=32.3.3 appOutDir=dist\win-unpacked
+  • building        target=nsis file=dist\DRIVE CLEANER Setup 1.0.0.exe archs=x64 oneClick=false perMachine=false
+  • building block map  blockMapFile=dist\DRIVE CLEANER Setup 1.0.0.exe.blockmap
+  • building        target=portable file=dist\DRIVE CLEANER Portable 1.0.0.exe archs=x64

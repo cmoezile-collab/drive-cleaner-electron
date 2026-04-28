@@ -10,7 +10,19 @@
     "dev": "electron .",
     "pack": "electron-builder --dir",
     "build": "electron-builder --win nsis portable",
-    "build:win": "electron-builder --win"
+    "build:win": "electron-builder --win",
+    "test:syntax": "node --check main.js && node --check preload.js && node --check renderer.js && node --check scripts/dcc-audit.js",
+    "test:audit": "node scripts/dcc-audit.js",
+    "doctor": "node scripts/dcc-doctor.js",
+    "test:doctor": "npm run doctor",
+    "test:rc": "npm run test:syntax && npm run test:audit && npm run test:doctor && node scripts/dcc-rc-check.js",
+    "test": "npm run test:rc",
+    "build:win:rc": "npm run test:rc && npm run build:win",
+    "branding:check": "node scripts/dcc-branding-check.js",
+    "build:assets": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/generate-icon.ps1",
+    "branding:lock": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/generate-icon.ps1 && node scripts/dcc-branding-check.js",
+    "test:global": "node scripts/dcc-final-global-check.js",
+    "qa:final": "npm run branding:lock && npm run test:rc && npm run test:global"
   },
   "devDependencies": {
     "electron": "^32.0.0",
@@ -50,7 +62,10 @@
       "allowToChangeInstallationDirectory": true,
       "perMachine": false,
       "shortcutName": "DRIVE CLEANER",
-      "uninstallDisplayName": "DRIVE CLEANER"
+      "uninstallDisplayName": "DRIVE CLEANER",
+      "installerHeader": "assets/installerHeader.bmp",
+      "installerSidebar": "assets/installerSidebar.bmp",
+      "uninstallerSidebar": "assets/installerSidebar.bmp"
     },
     "portable": {
       "artifactName": "DRIVE CLEANER Portable ${version}.${ext}"

@@ -1,0 +1,290 @@
+[Mon 04/27/2026 20:09:32.71] Node version 
+CMD: node --version 
+v24.14.1
+[Mon 04/27/2026 20:09:32.75] npm version 
+CMD: npm --version 
+11.11.0
+[Mon 04/27/2026 20:09:32.94] Install / refresh dependencies 
+CMD: npm install 
+
+up to date, audited 311 packages in 3s
+
+48 packages are looking for funding
+  run `npm fund` for details
+
+13 vulnerabilities (4 low, 1 moderate, 8 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+[Mon 04/27/2026 20:09:35.77] Lock DCC branding assets 
+CMD: npm run branding:lock 
+
+> drive-cleaner-by-clark@1.0.0 branding:lock
+> powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/generate-icon.ps1 && node scripts/dcc-branding-check.js
+
+DCC branding lock
+Project: E:\Code_HQ\Drive Cleaner by Clark
+Mode: preserve canonical assets; no icon regeneration
+[OK] assets/dcc.ico preserved
+[OK] assets/icon.png preserved
+[OK] assets/dcc-logo.png preserved
+[OK] installer BMPs synced from assets/ to build/
+[OK] old generated DCC icon routine disabled
+DCC branding check
+[OK] assets/dcc.ico exists
+[OK] assets/icon.png exists
+[OK] assets/dcc-logo.png exists
+[OK] assets/dcc-mark.svg exists
+[OK] assets/installerHeader.bmp exists
+[OK] assets/installerSidebar.bmp exists
+[OK] build/installerHeader.bmp exists
+[OK] build/installerSidebar.bmp exists
+[OK] assets/installerHeader.bmp is 150x57
+[OK] assets/installerSidebar.bmp is 164x314
+[OK] build header matches canonical assets header
+[OK] build sidebar matches canonical assets sidebar
+[OK] Windows icon path uses assets/dcc.ico
+[OK] NSIS installer icon uses assets/dcc.ico
+[OK] NSIS header path locked to assets
+[OK] NSIS sidebar path locked to assets
+[OK] NSIS uninstaller sidebar path locked to assets
+
+Failures: 0
+DCC branding check passed.
+[Mon 04/27/2026 20:09:36.24] Run DCC RC gates 
+CMD: npm run test:rc 
+
+> drive-cleaner-by-clark@1.0.0 test:rc
+> npm run test:syntax && npm run test:audit && npm run test:doctor && node scripts/dcc-rc-check.js
+
+
+> drive-cleaner-by-clark@1.0.0 test:syntax
+> node --check main.js && node --check preload.js && node --check renderer.js && node --check scripts/dcc-audit.js
+
+
+> drive-cleaner-by-clark@1.0.0 test:audit
+> node scripts/dcc-audit.js
+
+DCC Safety Audit
+Project: E:\Code_HQ\Drive Cleaner by Clark
+
+Core files
+[OK] package.json exists
+[OK] main.js exists
+[OK] preload.js exists
+[OK] renderer.js exists
+[OK] index.html exists
+[OK] styles.css exists
+[OK] assets/dcc.ico exists
+[OK] assets/installerHeader.bmp exists
+[OK] assets/installerSidebar.bmp exists
+[OK] build/installer.nsh exists
+[OK] build_all.bat exists
+[OK] scripts/dcc-audit.js exists
+[OK] scripts/dcc-doctor.js exists
+[OK] scripts/dcc-rc-check.js exists
+
+Package scripts
+[OK] script start is installed
+[OK] script test:syntax is installed
+[OK] script test:audit is installed
+[OK] script test:doctor is installed
+[OK] script test is installed
+[OK] script doctor is installed
+[OK] script test:rc is installed
+[OK] script build:win:rc is installed
+[WARN] npm test exists but does not clearly chain syntax + audit
+[OK] test:rc includes DCC RC check
+
+Package build config
+[OK] package name: drive-cleaner-by-clark
+[OK] version is semver-like: 1.0.0
+[OK] Windows build requests administrator privileges
+[OK] Windows icon uses canonical DCC icon
+[OK] NSIS header uses canonical asset
+[OK] NSIS sidebar uses canonical asset
+[OK] NSIS uninstaller sidebar uses canonical asset
+[OK] packaged: main.js
+[OK] packaged: preload.js
+[OK] packaged: renderer.js
+[OK] packaged: index.html
+[OK] packaged: styles.css
+[OK] packaged: assets/**/*
+
+Electron security
+[OK] contextIsolation enabled
+[OK] nodeIntegration disabled
+[OK] BrowserWindow sandbox enabled
+[OK] webSecurity enabled
+[OK] CSP is present
+[OK] window.open is controlled
+[OK] webview attachment blocked
+[OK] permissions denied by default
+[OK] navigation guard is present
+
+Safety policy
+[OK] administrator/elevation handling is present
+[OK] system-drive policy is present
+[OK] typed drive challenge is enforced
+[OK] formatting uses an explicit drive policy
+[OK] renderer explains drive risk policy
+[OK] preload validates or controls format payloads
+
+Renderer hygiene
+[OK] visible log cap is defined
+[OK] visible log cap is enforced
+[OK] renderer avoids direct HTML injection helpers
+[OK] copy active log control is present
+[OK] renderer can format diagnostics report
+[OK] renderer persists DCC UI preferences
+
+Installer assets
+[OK] installerHeader.bmp is 150x57
+[OK] installerSidebar.bmp is 164x314
+[OK] installerHeader.bmp is 150x57
+[OK] installerSidebar.bmp is 164x314
+[OK] branding check script is present
+
+Toolchain
+[OK] node v24.14.1
+[OK] npm context detected
+
+Summary
+Failures: 0
+Warnings: 1
+
+DCC audit passed.
+Warnings are non-blocking, but review them before final release.
+
+> drive-cleaner-by-clark@1.0.0 test:doctor
+> npm run doctor
+
+
+> drive-cleaner-by-clark@1.0.0 doctor
+> node scripts/dcc-doctor.js
+
+DCC Doctor
+Project: E:\Code_HQ\Drive Cleaner by Clark
+
+Project files
+✓ main.js exists
+✓ preload.js exists
+✓ renderer.js exists
+✓ index.html exists
+✓ styles.css exists
+✓ package.json exists
+✓ build_all.bat exists
+✓ scripts/dcc-audit.js exists
+✓ scripts/dcc-doctor.js exists
+✓ scripts/dcc-rc-check.js exists
+
+Package scripts
+✓ script "start" is present
+✓ script "build" is present
+✓ script "build:win" is present
+✓ script "test:syntax" is present
+✓ script "test:audit" is present
+✓ script "test:doctor" is present
+✓ script "doctor" is present
+✓ script "test:rc" is present
+✓ script "build:win:rc" is present
+✓ script "branding:check" is present
+
+Build configuration
+✓ appId is configured
+✓ productName is configured
+✓ Windows requestedExecutionLevel requires administrator
+✓ NSIS header uses canonical asset
+✓ NSIS sidebar uses canonical asset
+✓ NSIS uninstaller sidebar uses canonical asset
+✓ build.files includes main.js
+✓ build.files includes preload.js
+✓ build.files includes renderer.js
+✓ build.files includes index.html
+✓ build.files includes styles.css
+✓ build.files includes assets/**/*
+
+Installer assets
+✓ assets/installerHeader.bmp is 150x57
+✓ assets/installerSidebar.bmp is 164x314
+✓ assets/dcc.ico exists
+✓ assets/icon.png exists
+✓ assets/dcc-logo.png exists
+
+Electron security wiring
+✓ contextIsolation is enabled
+✓ nodeIntegration is disabled
+✓ BrowserWindow sandbox is enabled
+✓ window opening is controlled
+✓ webview attachment is blocked
+✓ preload exposes a controlled bridge
+
+Safety policy
+✓ system-drive logic is present
+✓ format logic is present
+✓ formatting is limited by drive type policy
+✓ typed drive challenge is present
+
+Toolchain
+✓ node v24.14.1
+✓ npm is available (npm user agent detected (npm/11.11.0))
+✓ electron package installed (32.3.3)
+
+Syntax quick check
+✓ main.js parses
+✓ preload.js parses
+✓ renderer.js parses
+✓ scripts/dcc-audit.js parses
+✓ scripts/dcc-rc-check.js parses
+
+Summary
+Failures: 0
+Warnings: 0
+DCC doctor passed.
+DCC RC Gate
+Project: E:\Code_HQ\Drive Cleaner by Clark
+✓ package.json readable
+
+Release files
+✓ RC_CHECKLIST.md exists
+✓ ROUND7_RC_STABILIZATION.md exists
+✓ build_all.bat exists
+✓ scripts/dcc-audit.js exists
+✓ scripts/dcc-doctor.js exists
+✓ scripts/dcc-rc-check.js exists
+
+NPM scripts
+✓ doctor script installed
+✓ test:rc runs RC gate
+✓ build:win:rc runs RC gates first
+
+Critical safety gates
+✓ format allowlist is removable-only
+✓ main process enforces typed challenge
+✓ renderer shows typed challenge input
+✓ renderer displays drive policy
+✓ renderer updates target safety
+✓ child process output cap is present
+✓ renderer log cap is present
+
+Branding/build gates
+✓ installer header points to assets
+✓ installer sidebar points to assets
+✓ Windows admin execution level is configured
+✗ build_all runs npm test
+✗ build_all runs doctor
+✓ build_all reminds manual QA
+
+Renderer/security hygiene
+✓ renderer avoids direct HTML injection
+✓ index.html avoids inline event handlers
+✓ CSP default-src self is set
+
+Summary
+Failures: 2
+DCC RC gate failed. Fix failures before packaging.

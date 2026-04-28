@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: file:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none';">
+  <title>DRIVE CLEANER | by Clark</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="titlebar">
+      <div class="brand-lockup">
+        <div class="brand-badge" aria-hidden="true"><img class="dcc-header-logo" src="./assets/dcc-icon-preview.png" alt=""></div>
+        <div class="brand-copy">
+          <div class="brand-line">
+            <span class="brand-name">DRIVE CLEANER</span>
+            <span class="brand-separator"></span>
+            <span class="brand-by">by Clark</span>
+          </div>
+          <div class="brand-subtitle">UNHIDE · SCAN · FORMAT · PROTECT</div>
+        </div>
+      </div>
+
+      <div class="titlebar-meta">
+        <div class="pill muted" id="adminBadge">CHECKING PRIVILEGES</div>
+        <div class="pill muted" id="statusBadge">IDLE</div>
+        <button class="titlebar-btn" id="statusReportBtn" type="button">STATUS</button>
+        <div class="window-controls">
+          <button class="window-btn" data-window-action="minimize" aria-label="Minimize">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5h10" /></svg>
+          </button>
+          <button class="window-btn" id="toggleMaximizeBtn" data-window-action="toggle-maximize" aria-label="Maximize">
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <path id="maximizeIcon" d="M3.5 3.5h9v9h-9z" />
+            </svg>
+          </button>
+          <button class="window-btn close" data-window-action="close" aria-label="Close">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="top-border"></div>
+
+    <div class="workspace">
+      <aside class="sidebar">
+        <section class="sidebar-section">
+          <div class="section-heading">
+            <div class="eyebrow">CONTROL PANEL</div>
+            <p>Drive targeting, safety options, and system readiness.</p>
+          </div>
+
+          <nav class="sidebar-nav" aria-label="DCC sections">
+            <button class="tab-btn active" data-tab-target="clean" type="button">
+              <span>CLEAN</span>
+              <small>Unhide + scan</small>
+            </button>
+            <button class="tab-btn" data-tab-target="format" type="button">
+              <span>FORMAT</span>
+              <small>Removable only</small>
+            </button>
+            <button class="tab-btn" data-tab-target="settings" type="button">
+              <span>SETTINGS</span>
+              <small>Policy + reports</small>
+            </button>
+          </nav>
+
+          <div class="card">
+            <div class="card-head">
+              <div class="eyebrow">TARGET DRIVE</div>
+              <p>Pick the device you want to inspect or format.</p>
+            </div>
+            <div class="rule"></div>
+
+            <label class="field">
+              <span class="field-label">CONNECTED DRIVES</span>
+              <select id="driveSelect"></select>
+            </label>
+
+            <div class="target-safety" id="targetSafety">
+              <div class="target-safety-top">
+                <span class="target-risk" id="targetRisk">NO DRIVE</span>
+                <span class="target-meta" id="targetMeta">Select a drive</span>
+              </div>
+              <p id="targetPolicy">DCC will explain which actions are allowed before you run them.</p>
+            </div>
+
+            <button class="btn btn-ghost btn-block" id="refreshDrives" type="button">REFRESH DRIVES</button>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div class="eyebrow">CLEAN ACTIONS</div>
+              <p>Core file cleanup options for the selected drive.</p>
+            </div>
+            <div class="rule"></div>
+
+            <label class="toggle-row">
+              <span>
+                <strong>Unhide Files</strong>
+                <small>Remove hidden attributes during clean runs.</small>
+              </span>
+              <input type="checkbox" id="settingUnhide" checked>
+            </label>
+
+            <label class="toggle-row">
+              <span>
+                <strong>Show System Files</strong>
+                <small>Also remove the system attribute when unhiding.</small>
+              </span>
+              <input type="checkbox" id="settingShowSystem">
+            </label>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div class="eyebrow">DEFENDER SCAN</div>
+              <p>Official Microsoft Defender scan switches for more control.</p>
+            </div>
+            <div class="rule"></div>
+
+            <label class="toggle-row">
+              <span>
+                <strong>Virus Scan</strong>
+                <small>Run a Windows Defender custom scan on the selected drive.</small>
+              </span>
+              <input type="checkbox" id="settingScan" checked>
+            </label>
+
+            <label class="toggle-row">
+              <span>
+                <strong>Auto-Quarantine</strong>
+                <small>When off, the app scans with remediation disabled.</small>
+              </span>
+              <input type="checkbox" id="settingAutoQ">
+            </label>
+
+            <label class="toggle-row">
+              <span>
+                <strong>Boot Sector Scan</strong>
+                <small>Include Defender's boot-sector scan switch in the run.</small>
+              </span>
+              <input type="checkbox" id="settingBootSector">
+            </label>
+
+            <label class="toggle-row">
+              <span>
+                <strong>CPU Throttling</strong>
+                <small>Use Defender's CPU throttling behavior from policy.</small>
+              </span>
+              <input type="checkbox" id="settingCpuThrottle" checked>
+            </label>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div class="eyebrow">SYSTEM</div>
+              <p>Current environment and permission state.</p>
+            </div>
+            <div class="rule"></div>
+
+            <div class="detail-row">
+              <span>OS</span>
+              <strong>Windows</strong>
+            </div>
+            <div class="detail-row">
+              <span>PRIVILEGES</span>
+              <strong id="privilegeValue">Checking...</strong>
+            </div>
+          </div>
+        </section>
+
+        <div class="sidebar-footer">DRIVE CLEANER | by Clark</div>
+      </aside>
+
+      <main class="content">
+        <section class="target-banner" id="targetBanner" data-tone="danger">
+          <div class="target-banner-main">
+            <span class="target-banner-label">TARGET</span>
+            <strong id="targetBannerDrive">No drive selected</strong>
+            <span id="targetBannerSummary">Select a drive to see action availability.</span>
+          </div>
+          <div class="target-banner-actions" id="targetBannerActions">Allowed: none</div>
+        </section>
+
+        <section class="panel active" id="panel-clean">
+          <div class="card">
+            <div class="card-head">
+              <div class="eyebrow">PROGRESS</div>
+              <p>Current clean run status and completion.</p>
+            </div>
+            <div class="rule"></div>
+
+            <div class="progress-meta">
+              <span>SESSION</span>
+              <strong id="cleanPercent">0%</strong>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" id="cleanProgressFill"></div>
+            </div>
+            <p class="progress-label" id="cleanTaskLabel">Ready — select a drive and choose an action.</p>
+          </div>
+
+          <div class="stats-grid">
+            <article class="stat-card">
+              <span>HIDDEN REVEALED</span>
+              <strong id="statHidden" data-tone="accent">0</strong>
+            </article>
+            <article class="stat-card">
+              <span>THREATS FOUND</span>
+              <strong id="statThreats" data-tone="danger">0</strong>
+            </article>
+            <article class="stat-card">
+              <span>STATUS</span>
+              <strong id="statStatus" data-tone="accent">—</strong>
+            </article>
+          </div>
+
+          <div class="card log-card">
+            <div class="card-head">
+              <div class="eyebrow">ACTIVITY LOG</div>
+              <p>Live output from unhide and scan operations.</p>
+            </div>
+            <div class="rule"></div>
+            <div class="log-box" id="cleanLog"></div>
+          </div>
+        </section>
+
+        <section class="panel" id="panel-format">
+          <div class="card">
+            <div class="card-head">
+              <div class="eyebrow">FORMAT PROGRESS</div>
+              <p>Formatting is destructive. Review the target drive carefully before running.</p>
+            </div>
+            <div class="rule"></div>
+
+            <div class="progress-meta">
+              <span>SESSION</span>
+              <strong id="formatPercent" class="danger">0%</strong>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill danger" id="formatProgressFill"></div>
+            </div>
+            <p class="progress-label" id="formatTaskLabel">Ready — select drive + options, then click FORMAT DRIVE.</p>
+          </div>
+
+          <div class="warning-card">
+            <div class="eyebrow danger">WARNING · DESTRUCTIVE OPERATION</div>
+            <p>Formatting permanently erases all data on the selected drive. Double-check the drive, filesystem, and format type before proceeding.</p>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div class="eyebrow">FORMAT OPTIONS</div>
+              <p>Choose the filesystem, format depth, and label for the target volume.</p>
+            </div>
+            <div class="rule"></div>
+
+            <div class="option-grid">
+              <div class="option-group">
+                <div class="field-label">FILESYSTEM</div>
+                <div class="choice-row compact">
+                  <label class="choice-pill"><input type="radio" name="filesystem" value="NTFS" checked><span>NTFS</span></label>
+                  <label class="choice-pill"><input type="radio" name="filesystem" value="exFAT"><span>exFAT</span></label>
+                  <label class="choice-pill"><input type="radio" name="filesystem" value="FAT32"><span>FAT32</span></label>
+                </div>
+              </div>
+
+              <div class="option-group">
+                <div class="field-label">FORMAT TYPE</div>
+                <div class="choice-row compact">
+                  <label class="choice-pill"><input type="radio" name="formatType" value="Quick" checked><span>Quick</span></label>
+                  <label class="choice-pill"><input type="radio" name="formatType" value="Full"><span>Full</span></label>
+                </div>
+                <p class="field-note">Full format is slower but more thorough.</p>
+              </div>
+            </div>
+
+            <label class="field">
+              <span class="field-label">VOLUME LABEL</span>
+              <input type="text" id="formatLabel" placeholder="optional label">
+            </label>
+
+            <div class="format-guard" id="formatGuard">
+              <strong>FORMAT GUARD</strong>
+              <span id="formatGuardText">Select a non-system target drive. Formatting will require exact drive-ID confirmation.</span>
+            </div>
+
+            <button class="btn btn-danger btn-block" id="formatDrive" type="button">FORMAT DRIVE</button>
+          </div>
+
+          <div class="card log-card">
+            <div class="card-head">
+              <div class="eyebrow">FORMAT LOG</div>
+              <p>Diskpart and validation output for formatting.</p>
+            </div>
+            <div class="rule"></div>
+            <div class="log-box" id="formatLog"></div>
+          </div>
+        </section>
+        <section class="panel settings-panel" id="panel-settings">
+          <div class="settings-hero card">
+            <div>
+              <div class="eyebrow">SETTINGS</div>
+              <h2>Drive Cleaner control center</h2>
+              <p>Review safety policy, diagnostics, release readiness, and utility controls without changing the destructive guardrails.</p>
+            </div>
+            <div class="settings-hero-badge">DCC · SAFE MODE</div>
+          </div>
+
+          <div class="settings-grid">
+            <div class="card settings-card">
+              <div class="card-head">
+                <div class="eyebrow">SAFETY POLICY</div>
+                <p>DCC keeps destructive operations intentionally narrow.</p>
+              </div>
+              <div class="rule"></div>
+              <div class="policy-list">
+                <div><strong>System drive</strong><span>Scan only. Unhide, full clean, and format stay blocked.</span></div>
+                <div><strong>Fixed drives</strong><span>Clean and scan allowed with caution. Format blocked in this release.</span></div>
+                <div><strong>Removable drives</strong><span>Clean, scan, and guarded format are available.</span></div>
+                <div><strong>Format challenge</strong><span>Two confirmations plus exact drive-ID typing are required.</span></div>
+              </div>
+            </div>
+
+            <div class="card settings-card">
+              <div class="card-head">
+                <div class="eyebrow">DIAGNOSTICS</div>
+                <p>Use these when validating builds, drives, and permission state.</p>
+              </div>
+              <div class="rule"></div>
+              <div class="settings-actions">
+                <button class="btn btn-primary" id="settingsStatusBtn" type="button">OPEN STATUS REPORT</button>
+                <button class="btn btn-subtle" id="settingsRefreshBtn" type="button">REFRESH DRIVES</button>
+              </div>
+              <p class="field-note">Status reports include Electron runtime, admin state, security posture, detected drives, and safety rules.</p>
+            </div>
+
+            <div class="card settings-card">
+              <div class="card-head">
+                <div class="eyebrow">PREFERENCES</div>
+                <p>Only non-destructive UI preferences are stored locally.</p>
+              </div>
+              <div class="rule"></div>
+              <div class="detail-row">
+                <span>Stored locally</span>
+                <strong>Tab, selected drive, toggles, format choices</strong>
+              </div>
+              <div class="detail-row">
+                <span>Never auto-runs</span>
+                <strong>Clean / scan / format actions</strong>
+              </div>
+              <button class="btn btn-ghost btn-block" id="settingsResetPrefsBtn" type="button">RESET UI PREFERENCES</button>
+            </div>
+
+            <div class="card settings-card appearance-card">
+              <div class="card-head">
+                <div class="eyebrow">APPEARANCE</div>
+                <p>Choose DCC's theme mode and accent color. Visual only. Safety policy does not change.</p>
+              </div>
+              <div class="rule"></div>
+
+              <label class="field">
+                <span class="field-label">THEME MODE</span>
+                <select id="appearanceModeSelect">
+                  <option value="dark">Dark</option>
+                  <option value="light">Light</option>
+                  <option value="system">System</option>
+                </select>
+              </label>
+
+              <div class="theme-control-row">
+                <label class="field theme-color-field">
+                  <span class="field-label">ACCENT COLOR</span>
+                  <input type="color" id="accentColorPicker" value="#d4b064" aria-label="Theme accent color">
+                </label>
+                <div class="theme-preview">
+                  <span id="themePreviewSwatch" class="theme-preview-swatch" aria-hidden="true"></span>
+                  <strong id="themeAccentValue">#D4B064</strong>
+                </div>
+              </div>
+
+              <button class="btn btn-ghost btn-block" id="settingsResetThemeBtn" type="button">RESET THEME</button>
+              <p class="field-note">System follows Windows light/dark preference. Accent changes are cosmetic only.</p>
+            </div>
+
+            <div class="card settings-card">
+              <div class="card-head">
+                <div class="eyebrow">LOG UTILITY</div>
+                <p>Copy logs for troubleshooting without touching the filesystem.</p>
+              </div>
+              <div class="rule"></div>
+              <div class="settings-actions">
+                <button class="btn btn-subtle" id="settingsCopyCleanLogBtn" type="button">COPY CLEAN LOG</button>
+                <button class="btn btn-subtle" id="settingsCopyFormatLogBtn" type="button">COPY FORMAT LOG</button>
+              </div>
+            </div>
+
+            <div class="card settings-card settings-card-wide">
+              <div class="card-head">
+                <div class="eyebrow">RELEASE READINESS</div>
+                <p>Current RC direction for this app.</p>
+              </div>
+              <div class="rule"></div>
+              <div class="release-grid">
+                <div><span>Security</span><strong>Sandboxed renderer · trusted IPC · local navigation</strong></div>
+                <div><span>Drive policy</span><strong>System protected · removable-only format</strong></div>
+                <div><span>Build</span><strong>Audit script + build_all workflow</strong></div>
+                <div><span>Branding</span><strong>DCC icon + installer assets wired</strong></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <footer class="action-bar">
+      <p class="footer-copy">Select a drive, review the settings, then run the action you need.</p>
+      <div class="footer-actions">
+        <div class="footer-actions-group" aria-label="Clean actions">
+          <button class="btn btn-ghost" id="btnUnhide" type="button">UNHIDE ONLY</button>
+          <button class="btn btn-ghost" id="btnScan" type="button">SCAN ONLY</button>
+          <button class="btn btn-primary" id="btnFull" type="button">FULL CLEAN</button>
+        </div>
+        <div class="footer-actions-group" aria-label="Log and task controls">
+          <button class="btn btn-subtle" id="btnCopyLog" type="button">COPY ACTIVE LOG</button>
+          <button class="btn btn-subtle" id="btnClearLog" type="button">CLEAR ACTIVE LOG</button>
+          <button class="btn btn-danger" id="btnStop" type="button" disabled>STOP</button>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <div class="modal-backdrop hidden" id="confirmModal">
+    <div class="modal-panel">
+      <div class="eyebrow" id="modalEyebrow">CONFIRM ACTION</div>
+      <h2 id="modalTitle">Are you sure?</h2>
+      <p id="modalMessage"></p>
+      <label class="modal-challenge hidden" id="modalChallengeWrap">
+        <span id="modalChallengeLabel">Type the target drive ID to continue</span>
+        <input type="text" id="modalChallengeInput" autocomplete="off" spellcheck="false">
+      </label>
+      <div class="modal-actions">
+        <button class="btn btn-subtle" id="modalCancel">CANCEL</button>
+        <button class="btn btn-danger" id="modalConfirm">CONTINUE</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="diagnosticsModal">
+    <div class="modal-panel diagnostics-panel">
+      <div class="eyebrow">STATUS REPORT</div>
+      <h2>DCC Diagnostics</h2>
+      <p>Copy this report when debugging build, safety, drive, or runtime issues.</p>
+      <pre class="diagnostics-report" id="diagnosticsReport">Loading...</pre>
+      <div class="modal-actions">
+        <button class="btn btn-subtle" id="diagnosticsClose" type="button">CLOSE</button>
+        <button class="btn btn-primary" id="diagnosticsCopy" type="button">COPY REPORT</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-stack" id="toastStack"></div>
+
+  <script src="./renderer.js"></script>
+</body>
+</html>

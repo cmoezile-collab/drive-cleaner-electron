@@ -1,0 +1,82 @@
+[Mon 04/27/2026 14:18:11.92] Node version 
+CMD: node --version 
+v24.14.1
+[Mon 04/27/2026 14:18:11.96] npm version 
+CMD: npm --version 
+11.11.0
+[Mon 04/27/2026 14:18:12.18] Install / refresh dependencies 
+CMD: npm install 
+
+up to date, audited 311 packages in 3s
+
+48 packages are looking for funding
+  run `npm fund` for details
+
+13 vulnerabilities (4 low, 1 moderate, 8 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+[Mon 04/27/2026 14:18:15.21] Run DCC RC gates 
+CMD: npm test 
+
+> drive-cleaner-by-clark@1.0.0 test
+> npm run test:rc
+
+
+> drive-cleaner-by-clark@1.0.0 test:rc
+> npm run test:syntax && npm run test:audit
+
+
+> drive-cleaner-by-clark@1.0.0 test:syntax
+> node --check main.js && node --check preload.js && node --check renderer.js && node --check scripts/dcc-audit.js
+
+
+> drive-cleaner-by-clark@1.0.0 test:audit
+> node scripts/dcc-audit.js
+
+DCC Safety Audit
+✓ BrowserWindow sandbox enabled
+✓ BrowserWindow webSecurity enabled
+✓ permissions denied by default
+✓ webview attachment blocked
+✓ window.open is controlled
+✓ IPC handlers use trusted sender gate
+✓ drive IDs are normalized by allowlist
+✓ system drive formatting is blocked
+✓ system-drive unhide is blocked
+✓ child process output is capped
+✓ preload validates clean payloads
+✓ preload validates format payloads
+✓ window actions are allowlisted
+✓ CSP is present
+✓ renderer avoids innerHTML clearing
+✓ NSIS header uses canonical asset
+✓ NSIS sidebar uses canonical asset
+✓ custom NSIS include is packaged
+✓ assets/dcc.ico exists
+✓ assets/installerHeader.bmp exists
+✓ assets/installerSidebar.bmp exists
+✓ build/installer.nsh exists
+✓ build_all.bat exists
+✓ installerHeader.bmp is 150x57
+✓ installerSidebar.bmp is 164x314
+
+Failures: 0
+DCC safety audit passed.
+[Mon 04/27/2026 14:18:16.36] Build Windows installer and portable 
+CMD: npm run build:win 
+
+> drive-cleaner-by-clark@1.0.0 build:win
+> electron-builder --win
+
+  • electron-builder  version=24.13.3 os=10.0.26200
+  • loaded configuration  file=package.json ("build" field)
+  • packaging       platform=win32 arch=x64 electron=32.3.3 appOutDir=dist\win-unpacked
+  • building        target=nsis file=dist\DRIVE CLEANER Setup 1.0.0.exe archs=x64 oneClick=false perMachine=false
+  • building block map  blockMapFile=dist\DRIVE CLEANER Setup 1.0.0.exe.blockmap
+  • building        target=portable file=dist\DRIVE CLEANER Portable 1.0.0.exe archs=x64

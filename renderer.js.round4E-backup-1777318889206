@@ -1,0 +1,841 @@
+const state = {
+  drives: [],
+  currentTab: 'clean',
+  running: false,
+  activeTask: null,
+  modalResolver: null,
+  modalChallenge: null,
+  lastDiagnosticsReport: '',
+  storageKey: 'dcc-ui-preferences-v1',
+  savedPreferences: {}
+};
+
+const elements = {};
+
+function unwrapAppResponse(value) {
+  if (!value || typeof value !== 'object') {
+    return value || {};
+  }
+
+  // Secure IPC wrappers may return { ok, data }, { ok, state }, or { ok, result }.
+  if (value.ok === true) {
+    if (value.state && typeof value.state === 'object') return value.state;
+    if (value.data && typeof value.data === 'object') return value.data;
+    if (value.result && typeof value.result === 'object') return value.result;
+  }
+
+  return value;
+}
+
+function normalizeDriveListResponse(value) {
+  const unwrapped = unwrapAppResponse(value);
+
+  if (Array.isArray(unwrapped)) return unwrapped;
+  if (!unwrapped || typeof unwrapped !== 'object') return [];
+
+  if (Array.isArray(unwrapped.drives)) return unwrapped.drives;
+  if (Array.isArray(unwrapped.driveList)) return unwrapped.driveList;
+  if (Array.isArray(unwrapped.items)) return unwrapped.items;
+  if (Array.isArray(unwrapped.data)) return unwrapped.data;
+  if (Array.isArray(unwrapped.result)) return unwrapped.result;
+
+  return [];
+}
+
+
+document.addEventListener('DOMContentLoaded', async () => {
+  cacheElements();
+  bindEvents();
+  setStatusBadge('IDLE', 'muted');
+  setRunningState(false, null);
+  seedDefaultLogs();
+
+  const unsubscribe = window.driveCleaner.onEvent(handleAppEvent);
+  window.addEventListener('beforeunload', unsubscribe);
+
+  try {
+    await bootstrap();
+  } catch (error) {
+    console.error('[DCC] Bootstrap failed:', error);
+    if (typeof showToast === 'function') {
+      showToast('error', 'Startup Failed', error.message || 'Drive Cleaner could not finish loading.');
+    }
+    if (typeof appendLog === 'function') {
+      appendLog('clean', `Startup failed: ${error.message || error}`, 'red');
+    }
+  }
+});
+
+function cacheElements() {
+  elements.driveSelect = document.getElementById('driveSelect');
+  elements.refreshDrives = document.getElementById('refreshDrives');
+  elements.targetSafety = document.getElementById('targetSafety');
+  elements.targetBanner = document.getElementById('targetBanner');
+  elements.targetBannerDrive = document.getElementById('targetBannerDrive');
+  elements.targetBannerSummary = document.getElementById('targetBannerSummary');
+  elements.targetBannerActions = document.getElementById('targetBannerActions');
+  elements.targetRisk = document.getElementById('targetRisk');
+  elements.targetMeta = document.getElementById('targetMeta');
+  elements.targetPolicy = document.getElementById('targetPolicy');
+  elements.formatGuard = document.getElementById('formatGuard');
+  elements.formatGuardText = document.getElementById('formatGuardText');
+  elements.settingUnhide = document.getElementById('settingUnhide');
+  elements.settingScan = document.getElementById('settingScan');
+  elements.settingAutoQ = document.getElementById('settingAutoQ');
+  elements.settingBootSector = document.getElementById('settingBootSector');
+  elements.settingCpuThrottle = document.getElementById('settingCpuThrottle');
+  elements.settingShowSystem = document.getElementById('settingShowSystem');
+  elements.adminBadge = document.getElementById('adminBadge');
+  elements.statusBadge = document.getElementById('statusBadge');
+  elements.statusReportBtn = document.getElementById('statusReportBtn');
+  elements.privilegeValue = document.getElementById('privilegeValue');
+  elements.cleanPercent = document.getElementById('cleanPercent');
+  elements.cleanProgressFill = document.getElementById('cleanProgressFill');
+  elements.cleanTaskLabel = document.getElementById('cleanTaskLabel');
+  elements.formatPercent = document.getElementById('formatPercent');
+  elements.formatProgressFill = document.getElementById('formatProgressFill');
+  elements.formatTaskLabel = document.getElementById('formatTaskLabel');
+  elements.statHidden = document.getElementById('statHidden');
+  elements.statThreats = document.getElementById('statThreats');
+  elements.statStatus = document.getElementById('statStatus');
+  elements.cleanLog = document.getElementById('cleanLog');
+  elements.formatLog = document.getElementById('formatLog');
+  elements.btnUnhide = document.getElementById('btnUnhide');
+  elements.btnScan = document.getElementById('btnScan');
+  elements.btnFull = document.getElementById('btnFull');
+  elements.btnClearLog = document.getElementById('btnClearLog');
+  elements.btnCopyLog = document.getElementById('btnCopyLog');
+  elements.btnStop = document.getElementById('btnStop');
+  elements.formatDrive = document.getElementById('formatDrive');
+  elements.formatLabel = document.getElementById('formatLabel');
+  elements.tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
+  elements.panels = {
+    clean: document.getElementById('panel-clean'),
+    format: document.getElementById('panel-format')
+  };
+  elements.windowButtons = Array.from(document.querySelectorAll('[data-window-action]'));
+  elements.toggleMaximizeBtn = document.getElementById('toggleMaximizeBtn');
+  elements.maximizeIcon = document.getElementById('maximizeIcon');
+  elements.modal = document.getElementById('confirmModal');
+  elements.modalEyebrow = document.getElementById('modalEyebrow');
+  elements.modalTitle = document.getElementById('modalTitle');
+  elements.modalMessage = document.getElementById('modalMessage');
+  elements.modalCancel = document.getElementById('modalCancel');
+  elements.modalConfirm = document.getElementById('modalConfirm');
+  elements.modalChallengeWrap = document.getElementById('modalChallengeWrap');
+  elements.modalChallengeLabel = document.getElementById('modalChallengeLabel');
+  elements.modalChallengeInput = document.getElementById('modalChallengeInput');
+  elements.diagnosticsModal = document.getElementById('diagnosticsModal');
+  elements.diagnosticsReport = document.getElementById('diagnosticsReport');
+  elements.diagnosticsClose = document.getElementById('diagnosticsClose');
+  elements.diagnosticsCopy = document.getElementById('diagnosticsCopy');
+  elements.toastStack = document.getElementById('toastStack');
+}
+
+function bindEvents() {
+  for (const button of elements.windowButtons) {
+    button.addEventListener('click', () => {
+      window.driveCleaner.windowAction(button.dataset.windowAction);
+    });
+  }
+
+  elements.tabButtons.forEach((button) => {
+    button.addEventListener('click', () => setActiveTab(button.dataset.tabTarget));
+  });
+
+  elements.driveSelect.addEventListener('change', () => {
+    updateTargetSafety();
+    savePreferences();
+  });
+
+  bindPreferenceControls();
+
+  elements.statusReportBtn.addEventListener('click', () => openDiagnostics().catch((error) => {
+    showToast('error', 'Diagnostics Failed', error.message);
+  }));
+
+  elements.diagnosticsClose.addEventListener('click', () => closeDiagnostics());
+  elements.diagnosticsModal.addEventListener('click', (event) => {
+    if (event.target === elements.diagnosticsModal) {
+      closeDiagnostics();
+    }
+  });
+  elements.diagnosticsCopy.addEventListener('click', () => copyDiagnostics().catch((error) => {
+    showToast('error', 'Copy Failed', error.message);
+  }));
+
+  elements.refreshDrives.addEventListener('click', () => {
+    refreshDrives().catch((error) => {
+      showToast('error', 'Drive Refresh Failed', error.message);
+      appendLog('clean', error.message, 'red');
+    });
+  });
+
+  elements.btnUnhide.addEventListener('click', () => startClean('unhide'));
+  elements.btnScan.addEventListener('click', () => startClean('scan'));
+  elements.btnFull.addEventListener('click', () => startClean('full'));
+  elements.formatDrive.addEventListener('click', () => confirmAndFormat());
+
+  elements.btnStop.addEventListener('click', async () => {
+    const result = await window.driveCleaner.stopTask();
+    if (!result.ok) {
+      showToast('info', 'Nothing To Stop', result.message);
+    }
+  });
+
+  elements.btnClearLog.addEventListener('click', () => {
+    const box = getActiveLogBox();
+    box.replaceChildren();
+    appendLog(state.currentTab, 'Log cleared.', 'dim');
+  });
+
+  elements.btnCopyLog.addEventListener('click', async () => {
+    const text = getActiveLogText();
+    if (!text) {
+      showToast('info', 'No Log Output', 'The active log is empty.');
+      return;
+    }
+    const result = await window.driveCleaner.copyText(text);
+    if (result && result.ok) {
+      showToast('success', 'Log Copied', 'Active log copied to clipboard.');
+    } else {
+      showToast('error', 'Copy Failed', result?.message || 'Could not copy the active log.');
+    }
+  });
+
+  elements.modalCancel.addEventListener('click', () => resolveModal(false));
+  elements.modalConfirm.addEventListener('click', () => resolveModal(true));
+  elements.modalChallengeInput.addEventListener('input', () => updateModalChallengeState());
+  elements.modal.addEventListener('click', (event) => {
+    if (event.target === elements.modal) {
+      resolveModal(false);
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !elements.modal.classList.contains('hidden')) {
+      resolveModal(false);
+      return;
+    }
+    if (event.key === 'Escape' && !elements.diagnosticsModal.classList.contains('hidden')) {
+      closeDiagnostics();
+      return;
+    }
+
+    if (event.ctrlKey && !event.altKey && !event.metaKey && !isTypingTarget(event.target)) {
+      if (event.key === '1') { event.preventDefault(); setActiveTab('clean'); }
+      if (event.key === '2') { event.preventDefault(); setActiveTab('format'); }
+    }
+  });
+}
+
+function isTypingTarget(target) {
+  if (!target || !target.tagName) return false;
+  return ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
+}
+
+function bindPreferenceControls() {
+  const tracked = [
+    elements.settingUnhide,
+    elements.settingShowSystem,
+    elements.settingScan,
+    elements.settingAutoQ,
+    elements.settingBootSector,
+    elements.settingCpuThrottle,
+    elements.formatLabel,
+    ...document.querySelectorAll('input[name="filesystem"]'),
+    ...document.querySelectorAll('input[name="formatType"]')
+  ].filter(Boolean);
+
+  for (const control of tracked) {
+    const eventName = control.type === 'text' ? 'input' : 'change';
+    control.addEventListener(eventName, () => {
+      savePreferences();
+      updateTargetSafety();
+    });
+  }
+}
+
+async function bootstrap() {
+  state.savedPreferences = loadPreferences();
+  applySavedControlPreferences();
+
+  const initial = unwrapAppResponse(await window.driveCleaner.getInitialState());
+  if (initial && initial.ok === false) {
+    showToast('error', 'Startup Failed', initial.message || 'Could not load initial state.');
+    appendLog('clean', initial.message || 'Could not load initial state.', 'red');
+    return;
+  }
+  document.title = initial.appName || 'DRIVE CLEANER | by Clark';
+  setAdminState(Boolean(initial.admin));
+  populateDrives(initial.drives || []);
+  if (initial.driveLoadError) {
+    appendLog('clean', `Drive enumeration warning: ${initial.driveLoadError}`, 'red');
+    showToast('error', 'Drives Did Not Load', 'Use Refresh Drives. If it persists, copy the STATUS report.');
+  } else if (!(initial.drives || []).length) {
+    appendLog('clean', 'No drives returned during startup. Try Refresh Drives.', 'red');
+  }
+  setWindowMaximized(Boolean(initial.maximized));
+  setActiveTab(state.savedPreferences.activeTab === 'format' ? 'format' : 'clean', { persist: false });
+  updateTargetSafety();
+}
+
+function loadPreferences() {
+  try {
+    const raw = localStorage.getItem(state.storageKey);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function savePreferences() {
+  const preferences = {
+    activeTab: state.currentTab,
+    selectedDriveId: elements.driveSelect?.value || '',
+    unhide: Boolean(elements.settingUnhide?.checked),
+    showSystem: Boolean(elements.settingShowSystem?.checked),
+    scan: Boolean(elements.settingScan?.checked),
+    autoQuarantine: Boolean(elements.settingAutoQ?.checked),
+    bootSectorScan: Boolean(elements.settingBootSector?.checked),
+    cpuThrottling: Boolean(elements.settingCpuThrottle?.checked),
+    filesystem: document.querySelector('input[name="filesystem"]:checked')?.value || 'NTFS',
+    formatType: document.querySelector('input[name="formatType"]:checked')?.value || 'Quick',
+    formatLabel: safeText(elements.formatLabel?.value || '', 32)
+  };
+
+  try {
+    localStorage.setItem(state.storageKey, JSON.stringify(preferences));
+    state.savedPreferences = preferences;
+  } catch {
+    // Preference persistence is non-critical.
+  }
+}
+
+function applySavedControlPreferences() {
+  const prefs = state.savedPreferences || {};
+  if (typeof prefs.unhide === 'boolean') elements.settingUnhide.checked = prefs.unhide;
+  if (typeof prefs.showSystem === 'boolean') elements.settingShowSystem.checked = prefs.showSystem;
+  if (typeof prefs.scan === 'boolean') elements.settingScan.checked = prefs.scan;
+  if (typeof prefs.autoQuarantine === 'boolean') elements.settingAutoQ.checked = prefs.autoQuarantine;
+  if (typeof prefs.bootSectorScan === 'boolean') elements.settingBootSector.checked = prefs.bootSectorScan;
+  if (typeof prefs.cpuThrottling === 'boolean') elements.settingCpuThrottle.checked = prefs.cpuThrottling;
+  if (typeof prefs.formatLabel === 'string') elements.formatLabel.value = safeText(prefs.formatLabel, 32);
+
+  if (['NTFS', 'exFAT', 'FAT32'].includes(prefs.filesystem)) {
+    const fileSystemOption = document.querySelector(`input[name="filesystem"][value="${prefs.filesystem}"]`);
+    if (fileSystemOption) fileSystemOption.checked = true;
+  }
+  if (['Quick', 'Full'].includes(prefs.formatType)) {
+    const formatTypeOption = document.querySelector(`input[name="formatType"][value="${prefs.formatType}"]`);
+    if (formatTypeOption) formatTypeOption.checked = true;
+  }
+}
+
+function seedDefaultLogs() {
+  appendLog('clean', 'Drive Cleaner initialized.', 'dim');
+  appendLog('clean', 'Select a drive from the left panel, then run.', 'dim');
+  appendLog('format', 'Format module ready. Select your drive + options, then click FORMAT DRIVE.', 'dim');
+}
+
+function setActiveTab(tab, options = {}) {
+  state.currentTab = tab === 'format' ? 'format' : 'clean';
+  elements.tabButtons.forEach((button) => {
+    button.classList.toggle('active', button.dataset.tabTarget === state.currentTab);
+  });
+  Object.entries(elements.panels).forEach(([key, panel]) => {
+    panel.classList.toggle('active', key === state.currentTab);
+  });
+  if (options.persist !== false) {
+    savePreferences();
+  }
+}
+
+function setAdminState(admin) {
+  elements.adminBadge.textContent = admin ? 'ELEVATED' : 'NOT ADMIN';
+  elements.adminBadge.className = `pill ${admin ? 'success' : 'danger'}`;
+  elements.privilegeValue.textContent = admin ? 'Elevated' : 'Not Admin';
+  elements.privilegeValue.style.color = admin ? 'var(--success)' : 'var(--danger)';
+
+  if (!admin) {
+    appendLog('clean', 'Run this app as administrator for full drive access and formatting.', 'red');
+  }
+}
+
+function setStatusBadge(label, tone) {
+  elements.statusBadge.textContent = label;
+  elements.statusBadge.className = `pill ${tone || 'muted'}`;
+}
+
+function setWindowMaximized(maximized) {
+  if (!elements.toggleMaximizeBtn || !elements.maximizeIcon) {
+    return;
+  }
+
+  elements.toggleMaximizeBtn.setAttribute('aria-label', maximized ? 'Restore Down' : 'Maximize');
+  elements.maximizeIcon.setAttribute(
+    'd',
+    maximized
+      ? 'M5 3.5h7.5V11M4 5h7.5v7.5H4z'
+      : 'M3.5 3.5h9v9h-9z'
+  );
+}
+
+function populateDrives(drives) {
+  drives = normalizeDriveListResponse(drives);
+  const previous = elements.driveSelect.value;
+  state.drives = drives;
+  elements.driveSelect.replaceChildren();
+
+  if (!drives.length) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = 'No drives detected';
+    elements.driveSelect.appendChild(option);
+    updateTargetSafety();
+    return;
+  }
+
+  drives.forEach((drive) => {
+    const option = document.createElement('option');
+    option.value = drive.id;
+    option.textContent = drive.display;
+    elements.driveSelect.appendChild(option);
+  });
+
+  const preferred = state.savedPreferences?.selectedDriveId || previous;
+  const hasPreferred = drives.some((drive) => drive.id === preferred);
+  const hasPrevious = drives.some((drive) => drive.id === previous);
+  elements.driveSelect.value = hasPreferred ? preferred : hasPrevious ? previous : drives[0].id;
+  updateTargetSafety();
+}
+
+function getSelectedDrive() {
+  const driveId = elements.driveSelect.value;
+  return state.drives.find((drive) => drive.id === driveId) || null;
+}
+
+function getSettings() {
+  return {
+    unhide: elements.settingUnhide.checked,
+    scan: elements.settingScan.checked,
+    autoQuarantine: elements.settingAutoQ.checked,
+    bootSectorScan: elements.settingBootSector.checked,
+    cpuThrottling: elements.settingCpuThrottle.checked,
+    showSystem: elements.settingShowSystem.checked
+  };
+}
+
+function normalizeDriveResponse(response) {
+  if (Array.isArray(response)) {
+    return { drives: response, error: null };
+  }
+  if (response && response.ok === false) {
+    return { drives: [], error: response.message || 'Drive enumeration failed.' };
+  }
+  if (response && Array.isArray(response.drives)) {
+    return { drives: response.drives, error: response.driveLoadError || response.message || null };
+  }
+  return { drives: [], error: 'Unexpected drive enumeration response.' };
+}
+
+async function refreshDrives() {
+  appendLog('clean', 'Scanning for connected drives...', 'dim');
+  const response = await window.driveCleaner.refreshDrives();
+  const { drives, error } = normalizeDriveResponse(response);
+  populateDrives(drives);
+  appendLog('clean', `Found ${drives.length} drive(s).`, drives.length ? 'gold' : 'red');
+  if (error) {
+    appendLog('clean', `Drive enumeration detail: ${error}`, 'red');
+  }
+  if (!drives.length) {
+    showToast('error', 'No Drives Detected', 'DCC could not enumerate drives. Open STATUS and copy diagnostics.');
+  }
+}
+
+function getDrivePolicy(drive) {
+  if (!drive) {
+    return { tone: 'danger', label: 'NO DRIVE', summary: 'No target drive selected.', canScan: false, canUnhide: false, canFullClean: false, canFormat: false };
+  }
+  const type = String(drive.type || 'Unknown');
+  const isSystem = Boolean(drive.isSystemDrive || drive.risk === 'SYSTEM');
+  const blockedType = ['Network', 'Optical', 'Unknown'].includes(type);
+  const hasSize = Number(drive.sizeBytes || 0) > 0;
+  if (isSystem) return { tone: 'danger', label: 'SYSTEM DRIVE', summary: 'Scan-only. Unhide, full clean, and format are blocked on the Windows system drive.', canScan: !blockedType, canUnhide: false, canFullClean: false, canFormat: false };
+  if (blockedType) return { tone: 'danger', label: type.toUpperCase(), summary: `${type} drives are blocked for DCC clean and format operations.`, canScan: false, canUnhide: false, canFullClean: false, canFormat: false };
+  if (type === 'Removable') return { tone: 'success', label: 'REMOVABLE', summary: 'Preferred target. Clean, scan, and guarded format are available.', canScan: true, canUnhide: true, canFullClean: true, canFormat: hasSize };
+  if (type === 'Fixed') return { tone: 'warning', label: 'FIXED DRIVE', summary: 'High caution. Scan, unhide, and full clean are available. Formatting fixed drives is blocked in this release.', canScan: true, canUnhide: true, canFullClean: true, canFormat: false };
+  return { tone: 'warning', label: type.toUpperCase(), summary: 'Review this target carefully before running any action.', canScan: true, canUnhide: true, canFullClean: true, canFormat: hasSize };
+}
+
+function updateTargetSafety() {
+  const drive = getSelectedDrive();
+  const policy = getDrivePolicy(drive);
+  const meta = drive ? `${drive.id} · ${drive.type} · ${drive.label || 'No Label'} · ${drive.sizeText || '?'}` : 'Select a drive';
+  elements.targetRisk.textContent = policy.label;
+  elements.targetRisk.dataset.tone = policy.tone;
+  elements.targetMeta.textContent = meta;
+  elements.targetPolicy.textContent = policy.summary;
+  elements.targetSafety.dataset.tone = policy.tone;
+  elements.targetBanner.dataset.tone = policy.tone;
+  elements.targetBannerDrive.textContent = drive ? `${drive.id} ${drive.label || 'No Label'}` : 'No drive selected';
+  elements.targetBannerSummary.textContent = policy.summary;
+  elements.targetBannerActions.textContent = buildAllowedActionText(policy);
+  elements.formatGuard.dataset.tone = policy.canFormat ? policy.tone : 'danger';
+  elements.formatGuardText.textContent = policy.canFormat ? `Formatting ${drive.id} requires two confirmations and typing ${drive.id} exactly.` : policy.summary;
+
+  const titles = {
+    scan: policy.canScan ? 'Run Windows Defender custom scan on the selected drive.' : policy.summary,
+    unhide: policy.canUnhide ? 'Remove hidden attributes from files and folders on the selected drive.' : policy.summary,
+    full: policy.canFullClean ? 'Run unhide and scan using the selected settings.' : policy.summary,
+    format: policy.canFormat ? 'Open the guarded format confirmation flow.' : policy.summary
+  };
+  elements.btnScan.title = titles.scan;
+  elements.btnUnhide.title = titles.unhide;
+  elements.btnFull.title = titles.full;
+  elements.formatDrive.title = titles.format;
+
+  if (!state.running) {
+    elements.btnScan.disabled = !policy.canScan;
+    elements.btnUnhide.disabled = !policy.canUnhide;
+    elements.btnFull.disabled = !policy.canFullClean;
+    elements.formatDrive.disabled = !policy.canFormat;
+  }
+}
+
+function buildAllowedActionText(policy) {
+  const allowed = [];
+  if (policy.canScan) allowed.push('Scan');
+  if (policy.canUnhide) allowed.push('Unhide');
+  if (policy.canFullClean) allowed.push('Full clean');
+  if (policy.canFormat) allowed.push('Guarded format');
+  return `Allowed: ${allowed.length ? allowed.join(' · ') : 'none'}`;
+}
+
+async function startClean(mode) {
+  const selectedDrive = getSelectedDrive();
+  const policy = getDrivePolicy(selectedDrive);
+  if (!selectedDrive) {
+    showToast('error', 'No Drive Selected', 'Pick a valid drive before starting a clean run.');
+    return;
+  }
+
+  if ((mode === 'scan' && !policy.canScan) || (mode === 'unhide' && !policy.canUnhide) || (mode === 'full' && !policy.canFullClean)) {
+    showToast('error', 'Action Blocked', policy.summary);
+    return;
+  }
+
+  const result = await window.driveCleaner.startClean({
+    mode,
+    driveId: selectedDrive.id,
+    settings: getSettings()
+  });
+
+  if (!result.ok) {
+    showToast('error', 'Task Busy', result.message);
+  }
+}
+
+async function confirmAndFormat() {
+  const selectedDrive = getSelectedDrive();
+  const policy = getDrivePolicy(selectedDrive);
+  if (!selectedDrive) {
+    showToast('error', 'No Drive Selected', 'Pick a valid drive before starting a format.');
+    return;
+  }
+
+  if (!policy.canFormat) {
+    showToast('error', 'Format Blocked', policy.summary);
+    return;
+  }
+
+  const filesystem = document.querySelector('input[name="filesystem"]:checked')?.value || 'NTFS';
+  const formatType = document.querySelector('input[name="formatType"]:checked')?.value || 'Quick';
+  const label = elements.formatLabel.value.trim();
+
+  setActiveTab('format');
+
+  const firstConfirm = await showConfirm({
+    eyebrow: 'CONFIRM FORMAT',
+    title: `Format ${selectedDrive.id}?`,
+    message: `Target: ${selectedDrive.id} · ${selectedDrive.type} · ${selectedDrive.label || 'No Label'} · ${selectedDrive.sizeText || '?'}\nFilesystem: ${filesystem}\nType: ${formatType} Format\nLabel: ${label || '(none)'}\n\nAll data on this drive will be permanently erased.`,
+    confirmText: 'YES, CONTINUE'
+  });
+  if (!firstConfirm) {
+    appendLog('format', 'Format cancelled by user.', 'dim');
+    return;
+  }
+
+  const secondConfirm = await showConfirm({
+    eyebrow: 'FINAL WARNING',
+    title: 'Last chance.',
+    message: `Drive ${selectedDrive.id} will be completely wiped.\nThis cannot be undone.`,
+    confirmText: 'FORMAT DRIVE',
+    challengeText: selectedDrive.id,
+    challengeLabel: `Type ${selectedDrive.id} exactly to unlock formatting.`
+  });
+  if (!secondConfirm) {
+    appendLog('format', 'Format cancelled at final warning.', 'dim');
+    return;
+  }
+
+  const result = await window.driveCleaner.startFormat({
+    driveId: selectedDrive.id,
+    filesystem,
+    formatType,
+    label,
+    challenge: selectedDrive.id
+  });
+
+  if (!result.ok) {
+    showToast('error', 'Task Busy', result.message);
+  }
+}
+
+function setRunningState(running, task) {
+  state.running = running;
+  state.activeTask = task;
+
+  const shouldDisable = running;
+  const controls = [
+    elements.driveSelect,
+    elements.refreshDrives,
+    elements.settingUnhide,
+    elements.settingScan,
+    elements.settingAutoQ,
+    elements.settingBootSector,
+    elements.settingCpuThrottle,
+    elements.settingShowSystem,
+    elements.btnUnhide,
+    elements.btnScan,
+    elements.btnFull,
+    elements.formatDrive,
+    elements.formatLabel,
+    ...document.querySelectorAll('input[name="filesystem"]'),
+    ...document.querySelectorAll('input[name="formatType"]')
+  ];
+
+  controls.forEach((element) => {
+    element.disabled = shouldDisable;
+  });
+
+  elements.btnStop.disabled = !running;
+  updateTargetSafety();
+}
+
+function setCleanProgress(value, percent, label) {
+  elements.cleanProgressFill.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+  elements.cleanPercent.textContent = `${percent}%`;
+  if (label) {
+    elements.cleanTaskLabel.textContent = label;
+  }
+}
+
+function setFormatProgress(value, percent, label) {
+  elements.formatProgressFill.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+  elements.formatPercent.textContent = `${percent}%`;
+  if (label) {
+    elements.formatTaskLabel.textContent = label;
+  }
+}
+
+function updateCleanStats(payload) {
+  if (payload.hidden !== undefined) {
+    elements.statHidden.textContent = payload.hidden;
+  }
+  if (payload.threats !== undefined) {
+    elements.statThreats.textContent = payload.threats;
+  }
+  if (payload.threatsTone) {
+    elements.statThreats.dataset.tone = payload.threatsTone;
+  }
+  if (payload.status !== undefined) {
+    elements.statStatus.textContent = payload.status;
+  }
+  if (payload.statusTone) {
+    elements.statStatus.dataset.tone = payload.statusTone;
+  }
+}
+
+function getActiveLogBox() {
+  return state.currentTab === 'format' ? elements.formatLog : elements.cleanLog;
+}
+
+function getActiveLogText() {
+  const box = getActiveLogBox();
+  return Array.from(box.querySelectorAll('.log-entry'))
+    .map((entry) => entry.textContent.trim())
+    .filter(Boolean)
+    .join('\n')
+    .slice(0, 24000);
+}
+
+function appendLog(scope, message, tone = 'normal', timestamp = new Date().toLocaleTimeString('en-GB', { hour12: false })) {
+  const target = scope === 'format' ? elements.formatLog : elements.cleanLog;
+  const entry = document.createElement('div');
+  entry.className = `log-entry tone-${tone}`;
+
+  if (timestamp) {
+    const stamp = document.createElement('span');
+    stamp.className = 'stamp';
+    stamp.textContent = `[${timestamp}]`;
+    entry.appendChild(stamp);
+  }
+
+  const body = document.createElement('span');
+  body.className = 'message';
+  body.textContent = safeText(message, 600);
+  entry.appendChild(body);
+
+  target.appendChild(entry);
+  while (target.children.length > MAX_LOG_ENTRIES) {
+    target.removeChild(target.firstElementChild);
+  }
+  target.scrollTop = target.scrollHeight;
+}
+
+function safeText(value, maxLength = 1200) {
+  return String(value ?? '').replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, maxLength);
+}
+
+function formatDiagnosticsReport(data) {
+  const lines = [];
+  lines.push('DCC STATUS REPORT');
+  lines.push(`Generated: ${data.generatedAt || new Date().toISOString()}`);
+  lines.push('');
+  lines.push('[App]');
+  lines.push(`Name: ${data.appName || 'DRIVE CLEANER | by Clark'}`);
+  lines.push(`Version: ${data.version || 'unknown'}`);
+  lines.push(`Packaged: ${data.packaged ? 'yes' : 'no'}`);
+  lines.push(`Platform: ${data.platform || 'unknown'}`);
+  lines.push(`Electron: ${data.versions?.electron || 'unknown'}`);
+  lines.push(`Chrome: ${data.versions?.chrome || 'unknown'}`);
+  lines.push(`Node: ${data.versions?.node || 'unknown'}`);
+  lines.push('');
+  lines.push('[Runtime]');
+  lines.push(`Admin: ${data.admin ? 'yes' : 'no'}`);
+  lines.push(`System drive: ${data.systemDrive || 'unknown'}`);
+  lines.push(`Active task: ${data.activeTask?.running ? data.activeTask.task || 'running' : 'none'}`);
+  lines.push('');
+  lines.push('[Drives]');
+  if (Array.isArray(data.drives) && data.drives.length) {
+    for (const drive of data.drives) {
+      lines.push(`${drive.id} · ${drive.type} · ${drive.label || 'No Label'} · ${drive.sizeText || '?'} · ${drive.risk?.label || drive.risk || 'UNKNOWN'}`);
+    }
+  } else {
+    lines.push('No drives reported.');
+  }
+  lines.push('');
+  lines.push('[Security]');
+  for (const [key, value] of Object.entries(data.security || {})) { lines.push(`${key}: ${value}`); }
+  lines.push('');
+  lines.push('[Safety Rules]');
+  for (const rule of data.safetyRules || []) { lines.push(`- ${rule}`); }
+  return lines.join('\n');
+}
+
+async function openDiagnostics() {
+  elements.diagnosticsReport.textContent = 'Loading diagnostics...';
+  elements.diagnosticsModal.classList.remove('hidden');
+  const diagnostics = await window.driveCleaner.getDiagnostics();
+  if (diagnostics && diagnostics.ok === false) { throw new Error(diagnostics.message || 'Diagnostics request failed.'); }
+  state.lastDiagnosticsReport = formatDiagnosticsReport(diagnostics || {});
+  elements.diagnosticsReport.textContent = state.lastDiagnosticsReport;
+}
+
+function closeDiagnostics() { elements.diagnosticsModal.classList.add('hidden'); }
+
+async function copyDiagnostics() {
+  const report = state.lastDiagnosticsReport || elements.diagnosticsReport.textContent || '';
+  const result = await window.driveCleaner.copyText(report);
+  if (result && result.ok === false) { throw new Error(result.message || 'Clipboard write failed.'); }
+  showToast('success', 'Report Copied', 'DCC diagnostics were copied to the clipboard.');
+}
+
+function showToast(level, title, message) {
+  const toast = document.createElement('div');
+  toast.className = `toast ${level}`;
+
+  const heading = document.createElement('strong');
+  heading.textContent = safeText(title, 96);
+  toast.appendChild(heading);
+
+  const body = document.createElement('p');
+  body.textContent = safeText(message, 600);
+  toast.appendChild(body);
+
+  elements.toastStack.appendChild(toast);
+  window.setTimeout(() => toast.remove(), 4200);
+}
+
+function showConfirm({ eyebrow, title, message, confirmText, challengeText = null, challengeLabel = null }) {
+  elements.modalEyebrow.textContent = eyebrow || 'CONFIRM ACTION';
+  elements.modalTitle.textContent = title || 'Are you sure?';
+  elements.modalMessage.textContent = message || '';
+  elements.modalConfirm.textContent = confirmText || 'CONTINUE';
+  state.modalChallenge = challengeText ? String(challengeText).trim().toUpperCase() : null;
+  elements.modalChallengeInput.value = '';
+  elements.modalChallengeLabel.textContent = challengeLabel || 'Type the target drive ID to continue';
+  elements.modalChallengeWrap.classList.toggle('hidden', !state.modalChallenge);
+  updateModalChallengeState();
+  elements.modal.classList.remove('hidden');
+  if (state.modalChallenge) {
+    window.setTimeout(() => elements.modalChallengeInput.focus(), 40);
+  }
+
+  return new Promise((resolve) => {
+    state.modalResolver = resolve;
+  });
+}
+
+function updateModalChallengeState() {
+  if (!state.modalChallenge) { elements.modalConfirm.disabled = false; return; }
+  const typed = elements.modalChallengeInput.value.trim().toUpperCase();
+  elements.modalConfirm.disabled = typed !== state.modalChallenge;
+}
+
+function resolveModal(value) {
+  if (state.modalResolver) {
+    state.modalResolver(value);
+    state.modalResolver = null;
+  }
+  elements.modal.classList.add('hidden');
+  state.modalChallenge = null;
+  elements.modalChallengeInput.value = '';
+  elements.modalConfirm.disabled = false;
+}
+
+function handleAppEvent(event) {
+  switch (event.type) {
+    case 'status':
+      setStatusBadge(event.label, event.tone);
+      break;
+    case 'window-maximized':
+      setWindowMaximized(Boolean(event.maximized));
+      break;
+    case 'running':
+      setRunningState(event.running, event.task);
+      break;
+    case 'clean-progress':
+      setCleanProgress(event.value, event.percent, event.label);
+      break;
+    case 'format-progress':
+      setFormatProgress(event.value, event.percent, event.label);
+      break;
+    case 'clean-stats':
+      updateCleanStats(event);
+      break;
+    case 'log':
+      appendLog(event.scope, event.message, event.tone, event.timestamp);
+      break;
+    case 'toast':
+      showToast(
+        event.level === 'error' ? 'error' : event.level === 'success' ? 'success' : 'info',
+        event.title,
+        event.message
+      );
+      break;
+    default:
+      break;
+  }
+}

@@ -1,0 +1,119 @@
+[Mon 04/27/2026 19:51:46.16] Node version 
+CMD: node --version 
+v24.14.1
+[Mon 04/27/2026 19:51:46.21] npm version 
+CMD: npm --version 
+11.11.0
+[Mon 04/27/2026 19:51:46.39] Install / refresh dependencies 
+CMD: npm install 
+
+up to date, audited 311 packages in 2s
+
+48 packages are looking for funding
+  run `npm fund` for details
+
+13 vulnerabilities (4 low, 1 moderate, 8 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+[Mon 04/27/2026 19:51:49.05] Run DCC RC gates 
+CMD: npm test 
+
+> drive-cleaner-by-clark@1.0.0 test
+> npm run test:rc
+
+
+> drive-cleaner-by-clark@1.0.0 test:rc
+> npm run test:syntax && npm run test:audit && npm run test:doctor && node scripts/dcc-rc-check.js
+
+
+> drive-cleaner-by-clark@1.0.0 test:syntax
+> node --check main.js && node --check preload.js && node --check renderer.js && node --check scripts/dcc-audit.js
+
+
+> drive-cleaner-by-clark@1.0.0 test:audit
+> node scripts/dcc-audit.js
+
+DCC Safety Audit
+✓ BrowserWindow sandbox enabled
+✓ BrowserWindow webSecurity enabled
+✓ permissions denied by default
+✓ webview attachment blocked
+✓ window.open is controlled
+✓ IPC handlers use trusted sender gate
+✓ drive IDs are normalized by allowlist
+✓ system drive formatting is blocked
+✓ system-drive unhide is blocked
+✓ child process output is capped
+✓ diagnostics IPC is available
+✓ clipboard copy uses trusted IPC
+✓ admin relaunch quotes app paths with spaces
+✓ format requires exact typed drive challenge
+✓ preload validates clean payloads
+✓ preload validates format payloads
+✓ window actions are allowlisted
+✓ preload exposes diagnostics safely
+✓ preload exposes controlled clipboard write
+✓ CSP is present
+✓ target safety panel is present
+✓ typed format challenge input is present
+✓ diagnostics modal is present
+✓ target command banner is present
+✓ renderer persists DCC UI preferences
+✓ renderer binds preference controls
+✓ renderer summarizes allowed actions
+✓ keyboard shortcut Ctrl+1 is installed
+✓ keyboard shortcut Ctrl+2 is installed
+✓ reduced-motion support is present
+✓ motion timing tokens are present
+✓ easing tokens are present
+✓ panel motion animation is present
+✓ modal motion animation is present
+✓ toast motion animation is present
+✓ scroll containment is present
+✓ button hover motion is softened
+✓ soft shadow system is present
+✓ target command banner stylesheet is present
+✓ sidebar workspace navigation is present
+✓ titlebar uses DCC icon asset
+✓ titlebar icon image is styled
+✓ content grid removes unused top tab row
+✓ keyboard focus rings are styled
+✓ renderer avoids innerHTML clearing
+✓ renderer explains drive risk policy
+✓ renderer updates action availability from target risk
+✓ formatting is limited by an explicit allowed-drive-type list
+✓ fixed/internal drive formatting is blocked by policy
+✓ renderer defines visible log cap constant
+✓ renderer caps visible log growth
+✓ renderer can copy active logs safely
+✓ copy active log control is present
+✓ renderer can format diagnostics report
+✓ NSIS header uses canonical asset
+✓ NSIS sidebar uses canonical asset
+✓ DriveInfo drive enumeration fallback is present
+✓ Node root drive enumeration fallback is present
+✓ drive enumeration merges provider results
+✓ diagnostics track drive enumeration attempts
+✓ renderer handles array and object drive responses
+✗ custom NSIS include is packaged
+✓ DCC doctor script is wired
+✓ DCC RC check script is wired
+✓ build_all runs doctor checks
+✓ build_all uses gated Windows RC build
+✓ DCC doctor file is present
+✓ DCC RC gate file is present
+✓ assets/dcc.ico exists
+✓ assets/installerHeader.bmp exists
+✓ assets/installerSidebar.bmp exists
+✓ build/installer.nsh exists
+✓ build_all.bat exists
+✓ installerHeader.bmp is 150x57
+✓ installerSidebar.bmp is 164x314
+
+Failures: 1

@@ -1,0 +1,82 @@
+#!/usr/bin/env node
+const fs = require('fs');
+const path = require('path');
+const root = process.cwd();
+let failures = 0;
+function p(file){ return path.join(root,file); }
+function read(file){ return fs.readFileSync(p(file),'utf8'); }
+function exists(file){ return fs.existsSync(p(file)); }
+function pass(msg){ console.log(`✓ ${msg}`); }
+function fail(msg){ failures += 1; console.error(`✗ ${msg}`); }
+function expect(file, needle, msg){
+  if (!exists(file)) return fail(`${file} missing`);
+  const text = read(file);
+  if (text.includes(needle)) pass(msg); else fail(msg);
+}
+function bmpSize(file){
+  const buf = fs.readFileSync(p(file));
+  return { width: buf.readInt32LE(18), height: Math.abs(buf.readInt32LE(22)) };
+}
+console.log('DCC Safety Audit');
+expect('main.js', 'sandbox: true', 'BrowserWindow sandbox enabled');
+expect('main.js', 'webSecurity: true', 'BrowserWindow webSecurity enabled');
+expect('main.js', 'setPermissionRequestHandler', 'permissions denied by default');
+expect('main.js', 'will-attach-webview', 'webview attachment blocked');
+expect('main.js', 'setWindowOpenHandler', 'window.open is controlled');
+expect('main.js', 'secureHandle', 'IPC handlers use trusted sender gate');
+expect('main.js', 'normalizeDriveId', 'drive IDs are normalized by allowlist');
+expect('main.js', 'Formatting the Windows system drive is blocked', 'system drive formatting is blocked');
+expect('main.js', 'Unhide operations are blocked on the Windows system drive', 'system-drive unhide is blocked');
+expect('main.js', 'OUTPUT_CAP_CHARS', 'child process output is capped');
+expect('main.js', 'app:diagnostics', 'diagnostics IPC is available');
+expect('main.js', 'clipboard:write', 'clipboard copy uses trusted IPC');
+expect('main.js', 'quoteWindowsProcessArg', 'admin relaunch quotes app paths with spaces');
+expect('main.js', 'Format challenge failed', 'format requires exact typed drive challenge');
+expect('preload.js', 'normalizeCleanPayload', 'preload validates clean payloads');
+expect('preload.js', 'normalizeFormatPayload', 'preload validates format payloads');
+expect('preload.js', 'WINDOW_ACTIONS', 'window actions are allowlisted');
+expect('preload.js', 'getDiagnostics', 'preload exposes diagnostics safely');
+expect('preload.js', 'copyText', 'preload exposes controlled clipboard write');
+expect('index.html', 'Content-Security-Policy', 'CSP is present');
+expect('index.html', 'targetSafety', 'target safety panel is present');
+expect('index.html', 'modalChallengeInput', 'typed format challenge input is present');
+expect('index.html', 'diagnosticsModal', 'diagnostics modal is present');
+expect('index.html', 'targetBanner', 'target command banner is present');
+expect('renderer.js', 'dcc-ui-preferences-v1', 'renderer persists DCC UI preferences');
+expect('renderer.js', 'bindPreferenceControls', 'renderer binds preference controls');
+expect('renderer.js', 'buildAllowedActionText', 'renderer summarizes allowed actions');
+expect('renderer.js', "event.key === '1'", 'keyboard shortcut Ctrl+1 is installed');
+expect('renderer.js', "event.key === '2'", 'keyboard shortcut Ctrl+2 is installed');
+expect('styles.css', 'prefers-reduced-motion', 'reduced-motion support is present');
+expect('styles.css', '.target-banner', 'target command banner stylesheet is present');
+expect('styles.css', 'focus-visible', 'keyboard focus rings are styled');
+expect('renderer.js', 'replaceChildren()', 'renderer avoids innerHTML clearing');
+expect('renderer.js', 'getDrivePolicy', 'renderer explains drive risk policy');
+expect('renderer.js', 'updateTargetSafety', 'renderer updates action availability from target risk');
+expect('main.js', 'FORMAT_ALLOWED_DRIVE_TYPES', 'formatting is limited by an explicit allowed-drive-type list');
+expect('main.js', 'Formatting is limited to removable drives in this release', 'fixed/internal drive formatting is blocked by policy');
+expect('renderer.js', 'MAX_LOG_ENTRIES', 'renderer caps visible log growth');
+expect('renderer.js', 'getActiveLogText', 'renderer can copy active logs safely');
+expect('index.html', 'btnCopyLog', 'copy active log control is present');
+expect('renderer.js', 'formatDiagnosticsReport', 'renderer can format diagnostics report');
+expect('package.json', 'assets/installerHeader.bmp', 'NSIS header uses canonical asset');
+expect('package.json', 'assets/installerSidebar.bmp', 'NSIS sidebar uses canonical asset');
+
+expect('main.js', 'getDrivesFromDriveInfo', 'DriveInfo drive enumeration fallback is present');
+expect('main.js', 'getDrivesFromNodeRoots', 'Node root drive enumeration fallback is present');
+expect('main.js', 'mergeDriveLists', 'drive enumeration merges provider results');
+expect('main.js', 'lastDriveEnumerationReport', 'diagnostics track drive enumeration attempts');
+expect('renderer.js', 'normalizeDriveResponse', 'renderer handles array and object drive responses');
+expect('package.json', 'build/installer.nsh', 'custom NSIS include is packaged');
+['assets/dcc.ico','assets/installerHeader.bmp','assets/installerSidebar.bmp','build/installer.nsh','build_all.bat'].forEach(file => {
+  if (exists(file)) pass(`${file} exists`); else fail(`${file} missing`);
+});
+try {
+  const header = bmpSize('assets/installerHeader.bmp');
+  if (header.width === 150 && header.height === 57) pass('installerHeader.bmp is 150x57'); else fail(`installerHeader.bmp is ${header.width}x${header.height}`);
+  const sidebar = bmpSize('assets/installerSidebar.bmp');
+  if (sidebar.width === 164 && sidebar.height === 314) pass('installerSidebar.bmp is 164x314'); else fail(`installerSidebar.bmp is ${sidebar.width}x${sidebar.height}`);
+} catch (error) { fail(`BMP validation failed: ${error.message}`); }
+console.log(`\nFailures: ${failures}`);
+if (failures > 0) process.exit(1);
+console.log('DCC safety audit passed.');

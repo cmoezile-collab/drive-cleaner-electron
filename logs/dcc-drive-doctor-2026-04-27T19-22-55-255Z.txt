@@ -1,0 +1,65 @@
+DCC Drive Doctor
+Project: E:\Code_HQ\Drive Cleaner by Clark
+Generated: 2026-04-27T19:22:55.264Z
+Platform: win32 x64
+Node: v24.14.1
+
+Provider: PowerShell Get-CimInstance Win32_LogicalDisk
+  status: 0  signal: -  elapsed: 282ms
+  drives: 6
+    - C: OS cim
+    - D: WORK cim
+    - E: STORAGE 1 cim
+    - F: No Label cim
+    - G: No Label cim
+    - I: STORAGE 2 cim
+
+Provider: .NET System.IO.DriveInfo
+  status: 0  signal: -  elapsed: 238ms
+  drives: 6
+    - C: OS driveinfo
+    - D: WORK driveinfo
+    - E: STORAGE 1 driveinfo
+    - F: No Label driveinfo
+    - G: Not Ready driveinfo
+    - I: STORAGE 2 driveinfo
+
+Provider: PowerShell Get-PSDrive FileSystem
+  status: 0  signal: -  elapsed: 402ms
+  drives: 6
+    - C: OS psdrive
+    - D: WORK psdrive
+    - E: STORAGE 1 psdrive
+    - F: No Label psdrive
+    - G: No Label psdrive
+    - I: STORAGE 2 psdrive
+
+Provider: WMIC logicaldisk
+  status: 0  signal: -  elapsed: 98ms
+  drives: 6
+    - C: OS wmic
+    - D: WORK wmic
+    - E: STORAGE 1 wmic
+    - F: No Label wmic
+    - G: No Label wmic
+    - I: STORAGE 2 wmic
+
+Provider: Node A-Z root scan
+  status: 0  signal: -  elapsed: 0ms
+  drives: 5
+    - C: Detected by Node root scan node-root-scan
+    - D: Detected by Node root scan node-root-scan
+    - E: Detected by Node root scan node-root-scan
+    - F: Detected by Node root scan node-root-scan
+    - I: Detected by Node root scan node-root-scan
+
+Merged result
+  drives: 6
+  - C: | OS | cim,driveinfo,psdrive,wmic,node-root-scan | 1000853204992
+  - D: | WORK | cim,driveinfo,psdrive,wmic,node-root-scan | 2048373293056
+  - E: | STORAGE 1 | cim,driveinfo,psdrive,wmic,node-root-scan | 4096788525056
+  - F: | No Label | cim,driveinfo,psdrive,wmic,node-root-scan | 255802212352
+  - G: | No Label | cim,driveinfo,psdrive,wmic | 0
+  - I: | STORAGE 2 | cim,driveinfo,psdrive,wmic,node-root-scan | 12000120795136
+
+Log saved to: E:\Code_HQ\Drive Cleaner by Clark\logs\dcc-drive-doctor-2026-04-27T19-22-55-255Z.txt
