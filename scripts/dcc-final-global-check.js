@@ -225,7 +225,8 @@ function checkUiLayout() {
 
   check(has(css, /ROUND11O HEADER EXACT FIT START/), 'Round 11O header exact-fit block is present');
   check(has(css, /ROUND11P FINAL SPACING \+ BUTTON ALIGNMENT START/), 'Round 11P final spacing/button block is present');
-  check(has(css, /grid-template-rows:\s*58px\s+1px\s+minmax\(0,\s*1fr\)\s+70px/i), 'app grid reserves 58px header and 70px action bar');
+  check(has(css, /ROUND12 DENSITY EFFICIENCY PASS START/), 'Round 12 density efficiency block is present');
+  check(has(css, /grid-template-rows:\s*58px\s+1px\s+minmax\(0,\s*1fr\)\s+64px/i), 'app grid reserves 58px header and 64px action bar');
   check(has(css, /\.titlebar\s*\{[\s\S]*?height:\s*58px\s*!important/i), 'titlebar locked to 58px height');
   check(has(css, /\.brand-lockup\s*\{[\s\S]*?grid-template-columns:\s*38px\s+minmax\(0,\s*auto\)/i), 'brand lockup reserves 38px logo column');
   check(has(css, /\.brand-badge\s*\{[\s\S]*?width:\s*38px\s*!important/i), 'brand badge locked to 38px');
@@ -234,7 +235,11 @@ function checkUiLayout() {
   check(has(css, /\.sidebar-section\s*>\s*\.card\s*\+\s*\.card\s*\{[\s\S]*?margin-top:\s*16px\s*!important/i), 'sidebar cards have 16px vertical spacing');
   check(has(css, /\.btn,[\s\S]*?\.titlebar-btn,[\s\S]*?\.choice-pill\s+span[\s\S]*?display:\s*inline-flex\s*!important/i), 'button labels use inline-flex centering');
   check(has(css, /\.btn\s*\{[\s\S]*?height:\s*38px/i), 'buttons have consistent 38px height');
-  check(has(css, /\.action-bar\s*\{[\s\S]*?height:\s*70px\s*!important/i), 'action bar height is locked to 70px');
+  check(has(css, /\.btn\s*\{[\s\S]*?min-height:\s*34px\s*!important[\s\S]*?height:\s*34px\s*!important/i), 'density pass tightens standard button height to 34px');
+  check(has(css, /\.card,\s*[\s\S]*?\.warning-card,\s*[\s\S]*?\.stat-card\s*\{[\s\S]*?padding:\s*18px\s*!important/i), 'density pass reduces card padding');
+  check(has(css, /\.panel\s*\{[\s\S]*?gap:\s*14px\s*!important/i), 'density pass reduces panel spacing');
+  check(has(css, /\.log-box\s*\{[\s\S]*?min-height:\s*162px\s*!important/i), 'density pass keeps logs useful without excess empty space');
+  check(has(css, /\.action-bar\s*\{[\s\S]*?height:\s*64px\s*!important/i), 'density pass locks action bar to 64px');
   soft(!has(css, /ROUND11K|ROUND11L|ROUND11M|ROUND11N/), 'old Round 11 header override blocks are absent', 'If present, they may be harmless only if Round 11O comes after them. Prefer removing old blocks.');
 
   check(has(css, /--display:/) && has(css, /--sans:/) && has(css, /--mono:/), 'font variables are defined');

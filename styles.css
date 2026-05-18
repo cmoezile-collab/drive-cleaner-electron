@@ -2456,3 +2456,240 @@ body[data-theme="light"] .format-guard:hover {
 }
 /* === ROUND11P FINAL SPACING + BUTTON ALIGNMENT END === */
 
+/* === ROUND12 DENSITY EFFICIENCY PASS START === */
+/* Compact the operational surface while preserving the DCC safety hierarchy. */
+.app-shell {
+  grid-template-rows: 58px 1px minmax(0, 1fr) 64px !important;
+}
+
+.workspace {
+  grid-template-columns: 286px minmax(0, 1fr) !important;
+}
+
+.content {
+  padding: 14px 20px 14px !important;
+}
+
+.panel {
+  gap: 14px !important;
+}
+
+.target-banner {
+  min-height: 54px !important;
+  padding: 0 20px !important;
+}
+
+.target-banner-main {
+  gap: 9px !important;
+}
+
+.target-banner-main strong {
+  font-size: 13px !important;
+}
+
+.target-banner-main span:last-child,
+.card-head p,
+.section-heading p,
+.field-note,
+.progress-label,
+.target-safety p,
+.settings-card p,
+.settings-hero p,
+.warning-card p {
+  font-size: 11.4px !important;
+  line-height: 1.45 !important;
+}
+
+.card,
+.warning-card,
+.stat-card {
+  padding: 18px !important;
+}
+
+.settings-hero {
+  min-height: 104px !important;
+  padding: 20px 22px !important;
+}
+
+.card-head {
+  gap: 5px !important;
+}
+
+.rule {
+  margin: 12px 0 12px !important;
+}
+
+.stats-grid {
+  gap: 12px !important;
+}
+
+.stat-card {
+  min-height: 78px !important;
+}
+
+.stat-card strong {
+  font-size: 26px !important;
+  line-height: 1.05 !important;
+}
+
+.progress-meta {
+  margin-bottom: 8px !important;
+}
+
+.progress-track {
+  height: 8px !important;
+}
+
+.log-card {
+  min-height: 0 !important;
+}
+
+.log-box {
+  min-height: 162px !important;
+  max-height: min(31vh, 280px) !important;
+  padding: 14px !important;
+}
+
+.log-entry {
+  gap: 8px !important;
+  line-height: 1.55 !important;
+}
+
+.sidebar {
+  padding: 15px 14px 12px !important;
+}
+
+.sidebar-section {
+  gap: 12px !important;
+  padding-right: 10px !important;
+}
+
+.sidebar-section > .card {
+  padding: 16px !important;
+}
+
+.sidebar-section > .card + .card {
+  margin-top: 12px !important;
+}
+
+.sidebar-nav {
+  gap: 8px !important;
+}
+
+.sidebar-nav .tab-btn {
+  min-height: 56px !important;
+  padding: 11px 12px !important;
+}
+
+.field select,
+.field input[type="text"] {
+  min-height: 38px !important;
+  padding: 0 12px !important;
+  font-size: 12px !important;
+}
+
+.toggle-row,
+.detail-row,
+.policy-list div,
+.release-grid div {
+  min-height: 48px !important;
+  padding: 12px !important;
+}
+
+.target-safety,
+.format-guard {
+  padding: 14px !important;
+}
+
+.option-grid,
+.settings-grid {
+  gap: 14px !important;
+}
+
+.choice-row {
+  gap: 8px !important;
+}
+
+.choice-pill span {
+  min-height: 34px !important;
+  padding: 0 14px !important;
+  font-size: 10px !important;
+}
+
+.btn {
+  min-height: 34px !important;
+  height: 34px !important;
+  padding: 1px 14px 0 !important;
+  font-size: 10.2px !important;
+  letter-spacing: 1.05px !important;
+  line-height: 1 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-variant-position: normal !important;
+}
+
+.btn-block {
+  min-height: 38px !important;
+  height: 38px !important;
+  padding-top: 1px !important;
+  padding-bottom: 0 !important;
+}
+
+.footer-actions .btn {
+  min-height: 34px !important;
+  height: 34px !important;
+  padding-left: 15px !important;
+  padding-right: 15px !important;
+  padding-top: 2px !important;
+  padding-bottom: 0 !important;
+  line-height: 1 !important;
+}
+
+.action-bar {
+  min-height: 64px !important;
+  height: 64px !important;
+  padding: 0 16px 0 18px !important;
+}
+
+.footer-actions {
+  gap: 8px !important;
+}
+
+.footer-actions-group {
+  gap: 7px !important;
+}
+
+.settings-actions {
+  gap: 8px !important;
+}
+
+.theme-control-row {
+  gap: 12px !important;
+}
+
+@media (max-width: 1180px) {
+  .workspace {
+    grid-template-columns: 268px minmax(0, 1fr) !important;
+  }
+
+  .content {
+    padding: 12px 14px !important;
+  }
+
+  .settings-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 980px) {
+  .app-shell {
+    grid-template-rows: 58px 1px minmax(0, 1fr) auto !important;
+  }
+
+  .action-bar {
+    min-height: auto !important;
+    height: auto !important;
+    padding: 10px 12px !important;
+  }
+}
+/* === ROUND12 DENSITY EFFICIENCY PASS END === */
